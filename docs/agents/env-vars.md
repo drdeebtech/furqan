@@ -40,10 +40,10 @@
 | `BUNNY_STREAM_PULL_ZONE_HOSTNAME` | Bunny CDN pull-zone hostname for video playback (e.g. `vz-12345678-abc.b-cdn.net`) |
 | `BUNNY_STREAM_TOKEN_AUTH_KEY` | Bunny CDN token-auth key for signing playback URLs |
 | `BUNNY_WEBHOOK_SECRET` | Bunny.net webhook HMAC SHA256 signing secret (verifies status callbacks) |
-| `PAYPAL_CLIENT_ID` | PayPal app client ID — server-side and surfaced as NEXT_PUBLIC_PAYPAL_CLIENT_ID for the SDK loader |
+| `PAYPAL_CLIENT_ID` | PayPal app client ID — **server-only**. Used with the secret for the OAuth client-credentials grant. Checkout is a server-side redirect flow (the route creates an order and returns `approveUrl`), so this is never sent to the browser |
 | `PAYPAL_CLIENT_SECRET` | PayPal app client secret — server-only, used for OAuth client-credentials grant |
-| `NEXT_PUBLIC_PAYPAL_CLIENT_ID` | Same value as `PAYPAL_CLIENT_ID`; needed in the browser by `@paypal/react-paypal-js` |
-| `PAYPAL_API_BASE` | `https://api-m.sandbox.paypal.com` (sandbox) or `https://api-m.paypal.com` (live). Defaults to sandbox if missing |
+| `PAYPAL_API_BASE` | `https://api-m.sandbox.paypal.com` (sandbox) or `https://api-m.paypal.com` (live). **Defaults to sandbox when unset or empty** — set it explicitly for live, or live credentials will be sent to the sandbox host and fail auth with no environment hint |
+| `PAYPAL_WEBHOOK_ID` | PayPal webhook ID (from the app's Webhooks section — the ID, *not* the URL) for `/api/paypal/webhook`. **Required**: the route returns **503** when unset and trusts only `verification_status === 'SUCCESS'`. Subscribe the webhook to exactly `PAYMENT.CAPTURE.COMPLETED` / `.DENIED` / `.REFUNDED` / `.REVERSED` |
 | `SENTRY_WATCH_SECRET` | Shared bearer token for `POST /api/sentry-watch/notify`. The hourly Claude Code Sentry-watcher cron presents it; the endpoint validates against it before sending the WhatsApp triage alert |
 | `BOTID_BYPASS_EMAILS` | Comma-separated allow-list of admin emails that skip BotID on `/login` + `/register`. Emergency-glass when the BotID client SDK fails to mint a token in a specific browser. The per-email rate limiter (10/hr) still gates stuffing attempts. Optional — leave unset to enforce BotID for everyone |
 | `DAILY_WEBHOOK_SECRET` | Daily.co webhook HMAC-SHA256 signing secret — **required** for the `/api/webhooks/daily` receiver. Set this in Vercel Production + Preview + Development, and in the Daily.co dashboard webhook config |

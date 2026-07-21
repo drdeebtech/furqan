@@ -10,14 +10,24 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
  * NEXT_PUBLIC_SUPABASE_ANON_KEY (all in .env.local) — no test-login secret,
  * no cookie hand-rolling.
  *
- * Skips (like the other env-gated specs) when those are absent.
+ * Skips unless those creds point at a LOOPBACK Supabase. This spec creates a
+ * user and inserts `payments` rows; it previously resolved
+ * `SUPABASE_URL ?? NEXT_PUBLIC_SUPABASE_URL`, and in a normal .env.local those
+ * are different projects — `SUPABASE_URL` is the HOSTED one. So it aimed signup
+ * and the payments seed at a real database while the page under test read the
+ * local stack. Only a mismatched anon key stopped it. See
+ * e2e/helpers/local-supabase.ts.
  */
 
-const SUPABASE_URL =
-  process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-const hasEnv = !!SUPABASE_URL && !!SERVICE_KEY && !!ANON_KEY;
+import {
+  APP_SUPABASE_URL as SUPABASE_URL,
+  SERVICE_ROLE_KEY as SERVICE_KEY,
+  ANON_KEY,
+  hasLocalSupabaseEnv,
+  LOCAL_ONLY_SKIP_REASON,
+} from "./helpers/local-supabase";
+
+const hasEnv = hasLocalSupabaseEnv();
 
 const EMAIL = "billing-visual@furqan.test";
 const PASSWORD = "Test-Passw0rd!23";
@@ -49,7 +59,7 @@ async function ensureStudent(api: APIRequestContext): Promise<string> {
 }
 
 test.describe("student billing page (visual)", () => {
-  test.skip(!hasEnv, "requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  test.skip(!hasEnv, LOCAL_ONLY_SKIP_REASON);
 
   test("renders empty then populated billing history in Arabic RTL", async ({ page, request }) => {
     // Local auth handshake can fail on a stale .env.local (key/format drift vs
@@ -92,12 +102,22 @@ test.describe("student billing page (visual)", () => {
     await page.screenshot({ path: "e2e/__screenshots__/student-billing-empty.png", fullPage: true });
 
     // ── Seed three payments (status variety) ───────────────────────────────
+    // Two DB rules this seed has to respect, both of which it used to break —
+    // silently, because the spec was aimed at the wrong project and skipped:
+    //
+    //  1. PostgREST rejects a bulk insert whose rows differ in shape (PGRST102
+    //     "All object keys must match"), so every object carries the same keys.
+    //     The unpaid row says `paid_at: null` rather than omitting the column.
+    //  2. CHECK `payment_tax_check`: amount_usd = amount_before_tax +
+    //     tax_amount. `amount_before_tax` defaults to 0.00, so setting only
+    //     `amount_usd` violates it. These are tax-free fixtures: the full
+    //     amount is pre-tax and tax_amount is 0.
     const seed = await request.post(`${SUPABASE_URL}/rest/v1/payments`, {
       headers: { ...sbHeaders, "content-type": "application/json", Prefer: "return=minimal" },
       data: [
-        { student_id: userId, amount_usd: 30, status: "succeeded", provider: "stripe", stripe_payment_intent: "pi_demo_1", paid_at: new Date("2026-07-01").toISOString() },
-        { student_id: userId, amount_usd: 12, status: "pending", provider: "stripe", stripe_payment_intent: "pi_demo_2" },
-        { student_id: userId, amount_usd: 30, status: "refunded", provider: "stripe", stripe_payment_intent: "pi_demo_3", paid_at: new Date("2026-06-15").toISOString() },
+        { student_id: userId, amount_usd: 30, amount_before_tax: 30, tax_amount: 0, status: "succeeded", provider: "stripe", stripe_payment_intent: "pi_demo_1", paid_at: new Date("2026-07-01").toISOString() },
+        { student_id: userId, amount_usd: 12, amount_before_tax: 12, tax_amount: 0, status: "pending", provider: "stripe", stripe_payment_intent: "pi_demo_2", paid_at: null },
+        { student_id: userId, amount_usd: 30, amount_before_tax: 30, tax_amount: 0, status: "refunded", provider: "stripe", stripe_payment_intent: "pi_demo_3", paid_at: new Date("2026-06-15").toISOString() },
       ],
     });
     expect(seed.ok(), `seed payments failed: ${seed.status()} ${await seed.text()}`).toBe(true);

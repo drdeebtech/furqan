@@ -5,6 +5,15 @@ import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
 import { getSetting, isFeatureEnabled } from "@/lib/settings";
+import {
+  PREPAID_DEFAULT_RATE_USD as DEFAULT_RATE_USD,
+  PREPAID_DEFAULT_CUSTOM_MIN as DEFAULT_CUSTOM_MIN,
+  PREPAID_DEFAULT_CUSTOM_MAX as DEFAULT_CUSTOM_MAX,
+} from "@/lib/domains/billing/prepaid-defaults";
+import {
+  PAYMENTS_UNAVAILABLE_MESSAGE,
+  PAYMENTS_UNAVAILABLE_STATUS,
+} from "@/lib/payments/provider-unavailable";
 
 export const maxDuration = 60;
 
@@ -45,9 +54,8 @@ type PrepaidCheckout = z.infer<typeof PrepaidCheckoutSchema>;
 // re-read of the setting, so a mid-flight admin rate change cannot desync the
 // charged amount from the granted lot's rate_paid_usd (R1).
 
-const DEFAULT_RATE_USD = 10;
-const DEFAULT_CUSTOM_MIN = 1;
-const DEFAULT_CUSTOM_MAX = 100;
+// Defaults are imported from @/lib/domains/billing/prepaid-defaults. This is
+// the CHARGE path — a stale local copy bills the wrong amount.
 
 async function readRateUsd(): Promise<number> {
   const raw = await getSetting("prepaid_hours_rate_usd");
@@ -154,8 +162,8 @@ export async function POST(request: Request) {
       { tag: "paypal-prepaid" },
     );
     return NextResponse.json(
-      { success: false, error: "Server misconfigured" },
-      { status: 500 },
+      { success: false, error: PAYMENTS_UNAVAILABLE_MESSAGE },
+      { status: PAYMENTS_UNAVAILABLE_STATUS },
     );
   }
 

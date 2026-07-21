@@ -9,7 +9,7 @@ import {
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote, Mic, Award,
   Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText,
   ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown, CalendarDays, LogOut,
-  Network, Map, Activity, BarChart3,
+  BarChart3, Sparkles,
 } from "lucide-react";
 import { Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -109,9 +109,8 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/automation", ar: "سجل الأتمتة", en: "Automation Logs", icon: ScrollText },
     { href: "/admin/automation/replay", ar: "إعادة تشغيل", en: "Webhook Replay", icon: ScrollText },
     { href: "/admin/audit", ar: "سجل التدقيق", en: "Audit Log", icon: ScrollText },
-    { href: "/admin/architecture", ar: "بنية قاعدة الكود", en: "Codebase Architecture", icon: Network },
-    { href: "/admin/health", ar: "صحة الكود", en: "Code Health", icon: Activity },
-    { href: "/admin/tour", ar: "جولة في الكود", en: "Codebase Tour", icon: Map },
+    // Dev-only artifacts (/admin/architecture, /admin/health, /admin/tour) are
+    // de-navved for business admins — the pages still exist by direct URL.
     { href: "/admin/account", ar: "حسابي", en: "My Account", icon: Settings },
     { href: "/admin/settings", ar: "الإعدادات", en: "Settings", icon: Settings },
   ],
@@ -132,7 +131,7 @@ const SETTINGS_PATH: Record<Role, string> = {
   student: "/student/settings",
 };
 
-export function Nav({ role, userName }: { role: Role; userName?: string }) {
+export function Nav({ role, userName, showConnectPayouts = false, showAiReview = false }: { role: Role; userName?: string; showConnectPayouts?: boolean; showAiReview?: boolean }) {
   const pathname = usePathname();
   const { lang, dir } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -189,7 +188,23 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
 
   const navLang = lang;
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
-  const links = LINKS[role];
+  // Base links are static; two admin ops surfaces and the teacher payouts link
+  // are gated on live-capability flags (threaded from DashboardLayout). Dormant
+  // Connect payouts (spec 040) and the AI eval gate (spec 028) must never show
+  // to end-users before their cutover — see the capability-surfacing plan §0/§3.
+  const links = useMemo<NavLink[]>(() => {
+    const base = LINKS[role];
+    if (role === "teacher") {
+      return showConnectPayouts ? base : base.filter((l) => l.href !== "/teacher/payouts");
+    }
+    if (role === "admin") {
+      const gated: NavLink[] = [];
+      if (showConnectPayouts) gated.push({ href: "/admin/payouts", ar: "مدفوعات المعلمين", en: "Teacher Payouts", icon: Wallet });
+      if (showAiReview) gated.push({ href: "/admin/ai-review", ar: "مراجعة الذكاء الاصطناعي", en: "AI Review", icon: Sparkles });
+      return gated.length > 0 ? [...base, ...gated] : base;
+    }
+    return base;
+  }, [role, showConnectPayouts, showAiReview]);
 
   // ⚡ Bolt: Group links by their group field
   // What: Wrap the link grouping loop in a useMemo hook.

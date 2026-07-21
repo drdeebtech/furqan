@@ -59,7 +59,7 @@ export async function selectActivePackage(
 ): Promise<ActivePackage | null> {
   let query = admin
     .from("student_packages")
-    .select("id, sessions_remaining")
+    .select("id, sessions_remaining, subscription_id, subscriptions(status)")
     .eq("student_id", studentId)
     .eq("status", "active")
     .gt("sessions_remaining", 0);
@@ -84,6 +84,8 @@ export async function selectActivePackage(
   const { data, error } = await query.maybeSingle<{
     id: string;
     sessions_remaining: number;
+    subscription_id: string | null;
+    subscriptions: { status: string } | { status: string }[] | null;
   }>();
 
   // No Silent Failures policy: a query error must surface in Sentry, not be
@@ -98,7 +100,84 @@ export async function selectActivePackage(
   }
 
   if (!data) return null;
+
+  // Fix #6 — past-due booking gate. A subscription grant is chargeable only
+  // while its subscription is active. The confirm-time deduct trigger charges
+  // subscription-first WITHOUT a status check, so letting a booking through when
+  // the top candidate is a past_due / unpaid subscription grant would drain that
+  // frozen subscription's sessions. Deny by default. Prepaid_hours / single-
+  // session lots carry no subscription_id and are never blocked; a student with
+  // wallet hours can still book via the explicit "use my hours" path (which
+  // restricts the candidate set to prepaid lots).
+  if (data.subscription_id) {
+    const sub = data.subscriptions;
+    const status = Array.isArray(sub) ? sub[0]?.status : sub?.status;
+    if (status !== "active") return null;
+  }
+
   return { id: data.id, sessionsRemaining: data.sessions_remaining };
+}
+
+/**
+ * Does this student hold a credit they could actually spend on a 1:1 booking?
+ *
+ * UI-AFFORDANCE PREDICATE ONLY — it grants nothing and charges nothing. Its job
+ * is to make the "Book" button appear exactly when `createBooking`'s fail-closed
+ * package precondition would let the booking through, so the student is never
+ * offered a button that leads to a dead end, nor hidden a button they have paid
+ * for. The authoritative guards are unchanged: `createBooking` at create time
+ * and the `deduct_student_package` trigger at confirm time.
+ *
+ * Mirrors `selectActivePackage`'s candidate rules deliberately (active lot with
+ * remaining credit; a subscription-funded lot counts only while its subscription
+ * is active). It intentionally does NOT apply the R2 *ranking* — ranking picks
+ * WHICH lot pays, which is irrelevant to "is there any".
+ *
+ * Takes the caller's RLS-scoped client rather than a service-role one: the
+ * `student_read_own_packages` and `subscriptions_read_own_or_admin` policies
+ * already let a student read exactly their own rows, so a self-check needs no
+ * elevated privilege (least privilege).
+ *
+ * Fails OPEN (returns true) on a query error. This is a display decision, not a
+ * money decision: on a transient DB blip a paying student must not be shown a
+ * paywall, and the worst case for a non-paying one is reaching the booking form
+ * and getting createBooking's precise "no active package" message instead of
+ * the paywall. No credit can be spent on a false positive.
+ */
+export async function hasBookableCredit(
+  client: SupabaseClient<Database>,
+  studentId: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from("student_packages")
+    .select("id, subscription_id, subscriptions(status)")
+    .eq("student_id", studentId)
+    .eq("status", "active")
+    .gt("sessions_remaining", 0)
+    .returns<
+      {
+        id: string;
+        subscription_id: string | null;
+        subscriptions: { status: string } | { status: string }[] | null;
+      }[]
+    >();
+
+  if (error) {
+    logError("hasBookableCredit query failed — showing the booking affordance", error, {
+      tag: "package-ledger",
+      metadata: { studentId },
+    });
+    return true;
+  }
+
+  return (data ?? []).some((lot) => {
+    // Prepaid-hours / single-session lots carry no subscription_id and are
+    // always spendable while active.
+    if (!lot.subscription_id) return true;
+    const sub = lot.subscriptions;
+    const status = Array.isArray(sub) ? sub[0]?.status : sub?.status;
+    return status === "active";
+  });
 }
 
 export type DebitOutcome =

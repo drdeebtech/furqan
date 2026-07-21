@@ -3,9 +3,19 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
 import { requireRole } from "@/lib/auth/require-admin";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
 import { getSetting, isFeatureEnabled } from "@/lib/settings";
+import {
+  PREPAID_DEFAULT_RATE_USD as DEFAULT_RATE_USD,
+  PREPAID_DEFAULT_CUSTOM_MIN as DEFAULT_CUSTOM_MIN,
+  PREPAID_DEFAULT_CUSTOM_MAX as DEFAULT_CUSTOM_MAX,
+} from "@/lib/domains/billing/prepaid-defaults";
+import {
+  PAYMENTS_UNAVAILABLE_MESSAGE,
+  PAYMENTS_UNAVAILABLE_STATUS,
+} from "@/lib/payments/provider-unavailable";
 
 export const maxDuration = 60;
 
@@ -45,9 +55,9 @@ type PrepaidCheckout = z.infer<typeof PrepaidCheckoutSchema>;
 // All wallet money knobs are DATA (platform_settings, seeded in Phase 1), never
 // hardcoded (NFR-001). Missing/blank/non-finite → seeded default.
 
-const DEFAULT_RATE_USD = 10;
-const DEFAULT_CUSTOM_MIN = 1;
-const DEFAULT_CUSTOM_MAX = 100;
+// Defaults are imported from @/lib/domains/billing/prepaid-defaults. This is
+// the CHARGE path — amountCents = hours × rateUsd × 100 — so a stale local copy
+// bills the wrong amount.
 
 async function readRateUsd(): Promise<number> {
   const raw = await getSetting("prepaid_hours_rate_usd");
@@ -115,6 +125,15 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  // Per-user rate limit (fix #4): cap Checkout-session creation. Fail-open so a
+  // limiter outage never blocks a real purchase.
+  if (!(await checkRateLimit(studentId, "checkout-prepaid-hours", 20))) {
+    return NextResponse.json(
+      { error: "Too many attempts — please wait a moment and try again." },
+      { status: 429 },
+    );
+  }
+
   // ── Body validation ────────────────────────────────────────────────────────
   let body: PrepaidCheckout;
   try {
@@ -157,8 +176,8 @@ export async function POST(request: Request) {
       { tag: "prepaid-hours" },
     );
     return NextResponse.json(
-      { success: false, error: "Server misconfigured" },
-      { status: 500 },
+      { success: false, error: PAYMENTS_UNAVAILABLE_MESSAGE },
+      { status: PAYMENTS_UNAVAILABLE_STATUS },
     );
   }
 
@@ -199,6 +218,9 @@ export async function POST(request: Request) {
   };
 
   const stripe = getStripe();
+  // 10-min double-submit window: a repeated click reuses the SAME Stripe key,
+  // so Stripe returns the first session instead of charging the wallet twice.
+  const idemBucket = Math.floor(Date.now() / 600_000);
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -221,7 +243,7 @@ export async function POST(request: Request) {
       payment_intent_data: { metadata: stripeMetadata },
       success_url: `${appUrl}/student/dashboard?prepaid_hours=success`,
       cancel_url: `${appUrl}/student/dashboard?prepaid_hours=cancelled`,
-    });
+    }, { idempotencyKey: `prepaid:${studentId}:${body.hours}:${idemBucket}` });
 
     if (!session.url) {
       logError(

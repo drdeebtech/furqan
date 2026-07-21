@@ -134,12 +134,13 @@ export class ConnectSweepStore implements SweepStore {
     errorDetail: string;
     claimedAt: Date;
   }): Promise<boolean> {
-    // errorDetail is surfaced via app logging (logError → Sentry) by the
-    // orchestrator, not persisted: a failed kind='transfer' row would trip the
-    // teacher_transfers UNIQUE backstops on the retry (see the SQL comment).
+    // FR-011: the error is persisted ON THE ENTRY (last_error_detail) with the
+    // attempt counter + backoff schedule; still no failed kind='transfer' row —
+    // that would trip the teacher_transfers UNIQUE backstops on the retry.
     const { data, error } = await callRpc(this.admin, "connect_sweep_record_transfer_failed", {
       p_entry_id: input.entryId,
       p_claimed_at: input.claimedAt.toISOString(),
+      p_error_detail: input.errorDetail,
     });
     if (error) throw sweepRpcError("recordTransferFailed", error);
     return data === true;

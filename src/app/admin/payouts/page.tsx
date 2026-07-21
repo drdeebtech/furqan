@@ -11,6 +11,7 @@ import {
   LiftHoldButton,
   MethodSwitch,
   PlaceHoldForm,
+  RequeueButton,
   SettleForm,
   SweepButton,
 } from "./payouts-controls";
@@ -50,14 +51,27 @@ interface ManualDueRow {
   teacher_id: string;
   full_name: string;
   amount_cents: number;
+  /** FR-027a: the payable net (remaining value minus FIFO debt share). */
+  net_due_cents: number;
+  recovered_cents: number;
   session_delivery_id: string | null;
   delivered_at: string | null;
   created_at: string;
+}
+interface FailedEntryRow {
+  entry_id: string;
+  teacher_id: string;
+  full_name: string;
+  amount_cents: number;
+  attempt_count: number;
+  last_error_detail: string | null;
+  updated_at: string;
 }
 interface Overview {
   cutover_date: string;
   teachers: TeacherRow[];
   manual_due: ManualDueRow[];
+  failed_entries: FailedEntryRow[];
 }
 
 const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -256,7 +270,8 @@ export default async function AdminPayoutsPage() {
               <thead>
                 <tr className="border-b border-white/10 text-muted-foreground">
                   <th scope="col" className="p-2 text-start">{t("المعلم", "Teacher")}</th>
-                  <th scope="col" className="p-2 text-start">{t("المبلغ", "Amount")}</th>
+                  <th scope="col" className="p-2 text-start">{t("الإجمالي", "Gross")}</th>
+                  <th scope="col" className="p-2 text-start">{t("الصافي المستحق", "Net due")}</th>
                   <th scope="col" className="p-2 text-start">{t("تاريخ الجلسة", "Delivered")}</th>
                   <th scope="col" className="p-2 text-start">{t("تسوية (مرجع إلزامي)", "Settle (reference required)")}</th>
                 </tr>
@@ -266,14 +281,77 @@ export default async function AdminPayoutsPage() {
                   <tr key={row.entry_id} className="border-b border-white/5">
                     <td className="p-2">{row.full_name || row.teacher_id.slice(0, 8)}</td>
                     <td className="p-2" dir="ltr">{usd(row.amount_cents)}</td>
+                    {/* FR-027a: the NET is what the admin pays; a difference from
+                        gross means debt was (or will be) netted against it. */}
+                    <td className="p-2 font-semibold" dir="ltr">
+                      {usd(row.net_due_cents)}
+                      {row.net_due_cents !== row.amount_cents ? (
+                        <span className="ms-1 text-xs font-normal text-warning">
+                          {t("(بعد خصم الدين)", "(after debt)")}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="p-2" dir="ltr">{utcDate(row.delivered_at)}</td>
                     <td className="p-2">
                       <SettleForm
                         entryId={row.entry_id}
+                        netDueCents={row.net_due_cents}
                         label={t("تسوية", "Settle")}
+                        closeLabel={t("إغلاق (مستهلك بالدين)", "Close (consumed by debt)")}
                         confirmText={t(
-                          "تأكيد تسوية هذا المبلغ يدويًا؟ (يُسجَّل في سجل التدقيق)",
-                          "Confirm settling this amount off-Stripe? (audit-logged, irreversible)",
+                          `تأكيد تسوية ${usd(row.net_due_cents)} يدويًا؟ (يُسجَّل في سجل التدقيق)`,
+                          `Confirm settling ${usd(row.net_due_cents)} off-Stripe? (audit-logged, irreversible)`,
+                        )}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Terminal-failed transfers (FR-011): retries exhausted, parked loud. */}
+      <section aria-labelledby="failed-h" className="glass-card rounded-xl p-4">
+        <h2 id="failed-h" className="mb-3 text-lg font-semibold">
+          {t("تحويلات فاشلة (تحتاج تدخّل)", "Failed transfers (need attention)")}
+        </h2>
+        {overview.failed_entries.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("لا توجد تحويلات فاشلة.", "No terminally-failed transfers.")}
+          </p>
+        ) : (
+          <div tabIndex={0} role="region" aria-label={t("جدول التحويلات الفاشلة", "Failed transfers table")}
+            className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2">
+            <table className="w-full min-w-[700px] text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-muted-foreground">
+                  <th scope="col" className="p-2 text-start">{t("المعلم", "Teacher")}</th>
+                  <th scope="col" className="p-2 text-start">{t("المبلغ", "Amount")}</th>
+                  <th scope="col" className="p-2 text-start">{t("المحاولات", "Attempts")}</th>
+                  <th scope="col" className="p-2 text-start">{t("آخر خطأ", "Last error")}</th>
+                  <th scope="col" className="p-2 text-start">{t("إجراء", "Action")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.failed_entries.map((row) => (
+                  <tr key={row.entry_id} className="border-b border-white/5">
+                    <td className="p-2">{row.full_name || row.teacher_id.slice(0, 8)}</td>
+                    <td className="p-2" dir="ltr">{usd(row.amount_cents)}</td>
+                    <td className="p-2" dir="ltr">{row.attempt_count}</td>
+                    {/* Full text rendered (wrapped) — a hover-only tooltip would
+                        hide the operational detail from touch/keyboard users. */}
+                    <td className="max-w-80 whitespace-pre-wrap break-words p-2 text-xs text-error" dir="ltr">
+                      {row.last_error_detail ?? "—"}
+                    </td>
+                    <td className="p-2">
+                      <RequeueButton
+                        entryId={row.entry_id}
+                        label={t("إعادة للطابور", "Requeue")}
+                        confirmText={t(
+                          "إعادة هذا التحويل الفاشل إلى الطابور؟ (سيُعاد تنفيذه في المسح التالي)",
+                          "Requeue this failed transfer? The next sweep retries it (idempotent — Stripe replays the same transfer).",
                         )}
                       />
                     </td>

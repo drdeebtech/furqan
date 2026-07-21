@@ -10,6 +10,7 @@ import {
   exportManualDueCsv,
   liftPayoutHold,
   placePayoutHold,
+  requeueFailedEntry,
   setPayoutMethod,
   settleManualDueEntry,
   type PayoutAdminResult,
@@ -26,7 +27,10 @@ function useAct() {
         setMsg(res.note ?? "done");
         router.refresh();
       } else {
-        setMsg(`error: ${res.error}`);
+        // A refusal may carry a note (e.g. stale_net's fresh amount) — show it,
+        // and refresh so fenced state (net due) re-renders from DB truth.
+        setMsg(`error: ${res.error}${res.note ? ` — ${res.note}` : ""}`);
+        if (res.error === "stale_net") router.refresh();
       }
     });
   return { pending, msg, run };
@@ -112,15 +116,43 @@ export function MethodSwitch({
 
 export function SettleForm({
   entryId,
+  netDueCents,
   label,
+  closeLabel,
   confirmText,
 }: {
   entryId: string;
+  /** FR-027a: the net the queue displayed — sent as the optimistic fence. */
+  netDueCents: number;
   label: string;
+  /** Shown instead of the reference form when net is 0 (nothing to pay). */
+  closeLabel: string;
   confirmText: string;
 }) {
   const { pending, msg, run } = useAct();
   const [reference, setReference] = useState("");
+
+  // Net 0 ⇒ the entry is fully consumed by debt: nothing is paid, so there is
+  // no payment reference — a single confirm-guarded close instead of the form.
+  if (netDueCents === 0) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <button
+          type="button"
+          disabled={pending}
+          className={btnCls}
+          onClick={() => {
+            if (!window.confirm(confirmText)) return;
+            run(() => settleManualDueEntry({ entryId, expectedNetCents: 0 }));
+          }}
+        >
+          {closeLabel}
+        </button>
+        {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
+      </span>
+    );
+  }
+
   return (
     <form
       className="flex items-center gap-1"
@@ -128,7 +160,9 @@ export function SettleForm({
         e.preventDefault();
         // An audited financial settlement — confirm like the rail switch does.
         if (!window.confirm(confirmText)) return;
-        run(() => settleManualDueEntry({ entryId, referenceId: reference }));
+        run(() =>
+          settleManualDueEntry({ entryId, referenceId: reference, expectedNetCents: netDueCents }),
+        );
       }}
     >
       <input
@@ -145,6 +179,32 @@ export function SettleForm({
       </button>
       {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
     </form>
+  );
+}
+
+/** FR-011: send a terminal-failed entry back to `pending` (audited). */
+export function RequeueButton({ entryId, label, confirmText }: {
+  entryId: string;
+  label: string;
+  confirmText: string;
+}) {
+  const { pending, msg, run } = useAct();
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        disabled={pending}
+        className={btnCls}
+        onClick={() => {
+          if (!window.confirm(confirmText)) return;
+          run(() => requeueFailedEntry({ entryId }));
+        }}
+      >
+        {label}
+      </button>
+      {/* role=status ⇒ polite live region: the async result is announced. */}
+      {msg ? <span role="status" className="text-xs text-muted-foreground">{msg}</span> : null}
+    </span>
   );
 }
 

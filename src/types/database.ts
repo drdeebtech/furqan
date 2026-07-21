@@ -6780,7 +6780,7 @@ export type Database = {
         Returns: boolean
       }
       connect_sweep_record_transfer_failed: {
-        Args: { p_entry_id: string; p_claimed_at: string }
+        Args: { p_entry_id: string; p_claimed_at: string; p_error_detail: string }
         Returns: boolean
       }
       connect_sweep_record_debt_recovered: {
@@ -6801,13 +6801,21 @@ export type Database = {
         }
         Returns: boolean
       }
+      connect_admin_requeue_failed_entry: {
+        Args: {
+          p_entry_id: string
+          p_actor: string
+        }
+        Returns: string
+      }
       connect_settle_manual_due: {
         Args: {
           p_entry_id: string
-          p_reference_id: string
+          p_reference_id: string | null
           p_settling_admin: string
+          p_expected_net_cents: number
         }
-        Returns: boolean
+        Returns: Json
       }
       // Spec 040 Phase 1 tail — ConnectAccountsStore RPCs
       // (20260803000000_connect_account_functions.sql; #185 seam).

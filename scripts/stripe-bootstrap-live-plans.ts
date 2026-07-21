@@ -43,10 +43,10 @@ interface PlanSeed {
 const PLANS: readonly PlanSeed[] = [
   { planCode: "hifz_group_4", name: "Hifz Group — 4 sessions/month", priceCents: 1200, currency: "usd" },
   { planCode: "hifz_group_6", name: "Hifz Group — 6 sessions/month", priceCents: 1500, currency: "usd" },
-  { planCode: "hifz_group_8", name: "Hifz Group — 8 sessions/month", priceCents: 2000, currency: "usd" },
-  { planCode: "hifz_individual_4h", name: "Hifz Individual — 4 hours/month", priceCents: 4000, currency: "usd" },
+  { planCode: "hifz_group_8", name: "Hifz Group — 8 sessions/month", priceCents: 1800, currency: "usd" },
+  { planCode: "hifz_individual_4h", name: "Hifz Individual — 4 hours/month", priceCents: 4400, currency: "usd" },
   { planCode: "hifz_individual_6h", name: "Hifz Individual — 6 hours/month", priceCents: 6000, currency: "usd" },
-  { planCode: "hifz_individual_8h", name: "Hifz Individual — 8 hours/month", priceCents: 8000, currency: "usd" },
+  { planCode: "hifz_individual_8h", name: "Hifz Individual — 8 hours/month", priceCents: 7200, currency: "usd" },
 ] as const;
 
 interface ResolvedPlan {

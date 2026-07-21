@@ -11,7 +11,7 @@ import { test, expect, type Page } from "@playwright/test";
  * ── Auth mechanism ──────────────────────────────────────────────────────────
  * Uses the project's TEST-ONLY login route at POST /api/auth/test-login (see
  * src/app/api/auth/test-login/route.ts). That route is purpose-built for
- * Playwright/TestSprite: it upserts a `@furqan.test` user + profile and mints
+ * Playwright/CI: it upserts a `@furqan.test` user + profile and mints
  * a real Supabase session cookie directly through the SSR client — so the
  * cookies land in the response Set-Cookie headers and Playwright's request
  * context stores them automatically. No manual cookie chunking needed.

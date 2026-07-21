@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { PREPAID_DEFAULT_RATE_USD } from "@/lib/domains/billing/prepaid-defaults";
 
 // ─── Mocks (mirror single-session/route.test.ts) ────────────────────────────
 
@@ -189,17 +190,22 @@ describe("POST /api/stripe/checkout/prepaid-hours (spec 038)", () => {
     expect(args.payment_intent_data.metadata.product_type).toBe("prepaid_hours");
   });
 
-  it("uses the seeded default rate (10) when the setting is missing", async () => {
+  // Derived from the shared constant, never hardcoded. These assertions used to
+  // say 1000 / "10.00"; when migration 20260817000000 raised the seeded rate to
+  // $14 the route still fell back to a local copy of 10, so a settings-read
+  // failure billed $10/hr for a $14/hr product. Deriving the expectation means
+  // the next rate change cannot leave this test asserting a stale price.
+  it("uses the seeded default rate when the setting is missing", async () => {
     mockGetSetting.mockResolvedValue(null);
 
     await POST(makeReq({ hours: 5 }));
 
     const args = mockSessionsCreate.mock.calls[0][0];
-    expect(args.line_items[0].price_data.unit_amount).toBe(1000); // $10.00 / hour
-    expect(args.metadata.rate_usd).toBe("10.00");
+    expect(args.line_items[0].price_data.unit_amount).toBe(PREPAID_DEFAULT_RATE_USD * 100);
+    expect(args.metadata.rate_usd).toBe(PREPAID_DEFAULT_RATE_USD.toFixed(2));
   });
 
-  it("uses the seeded default rate (10) when the setting is malformed", async () => {
+  it("uses the seeded default rate when the setting is malformed", async () => {
     // Defense-in-depth: a corrupt setting value must not crash checkout or
     // silently grant at 0 — fall back to the seeded default.
     mockGetSetting.mockResolvedValue("not-a-number");
@@ -207,7 +213,7 @@ describe("POST /api/stripe/checkout/prepaid-hours (spec 038)", () => {
     await POST(makeReq({ hours: 5 }));
 
     const args = mockSessionsCreate.mock.calls[0][0];
-    expect(args.line_items[0].price_data.unit_amount).toBe(1000);
+    expect(args.line_items[0].price_data.unit_amount).toBe(PREPAID_DEFAULT_RATE_USD * 100);
   });
 
   // ── Happy path ─────────────────────────────────────────────────────────────
@@ -220,10 +226,17 @@ describe("POST /api/stripe/checkout/prepaid-hours (spec 038)", () => {
   });
 
   // ── Config gates ───────────────────────────────────────────────────────────
-  it("returns 500 when Stripe is not configured", async () => {
+  // 503, not 500: the server is healthy and the request well-formed — the
+  // payment provider is simply unconfigured, which is a "try later" state. The
+  // body must also be real bilingual user copy, because the client renders
+  // `error` verbatim (it used to read "Server misconfigured" in English).
+  it("returns a bilingual 503 when Stripe is not configured", async () => {
     mockIsStripeConfigured.mockReturnValueOnce(false);
     const res = await POST(makeReq({ hours: 10 }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.error).toMatch(/[؀-ۿ]/);
+    expect(json.error).not.toMatch(/misconfigur/i);
     expect(mockSessionsCreate).not.toHaveBeenCalled();
   });
 

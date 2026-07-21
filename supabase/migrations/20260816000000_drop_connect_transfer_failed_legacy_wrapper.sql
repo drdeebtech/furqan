@@ -1,0 +1,40 @@
+-- 20260816000000_drop_connect_transfer_failed_legacy_wrapper.sql
+--
+-- Spec 040 FR-011 — CONTRACT PHASE: remove the 2-arg
+-- connect_sweep_record_transfer_failed deploy-window wrapper.
+--
+-- This is the removal that 20260812000000_connect_transfer_backoff.sql
+-- scheduled for itself:
+--     "Contract-phase removal in a later PR once no old instances remain."
+--
+-- Why the wrapper existed. Migrations and the Vercel build deploy CONCURRENTLY
+-- with no ordering gate, so when 812 replaced the 2-arg RPC with the 3-arg form
+-- an in-flight OLD app instance would still have called the 2-arg one. Without
+-- a wrapper that call would have errored and left the entry leased for the full
+-- 30-minute lease TTL. The wrapper delegated to the 3-arg form with a
+-- placeholder error so the legacy caller still got the full FR-011 contract.
+--
+-- Why dropping it is safe NOW (the deploy-window argument, stated the way 812
+-- stated the wrapper's own justification):
+--   * 812 shipped to production on 2026-07-18 (#729). Every running instance
+--     has been replaced many times over; no instance predating it exists.
+--   * The ONLY caller in the tree is
+--     src/lib/domains/connect/transfer-sweep-store.ts, which passes
+--     p_error_detail — i.e. binds the 3-arg overload. That is true of BOTH the
+--     currently-running build and the build that ships with this migration, so
+--     during THIS deploy window every caller on both sides is already 3-arg and
+--     no call can be stranded.
+--   * The function is service-role only (never client-reachable), and the
+--     Connect path is still dormant in production (connect_cutover_date unset),
+--     so no settlement traffic touches it today regardless.
+--   * src/types/database.ts declares only the 3-arg signature — no type change.
+--
+-- Replays from zero cleanly: 812 creates the wrapper, this drops it.
+--
+-- expand-contract-ok: deliberate contract-phase DROP of the 812 deploy-window
+-- wrapper. Precondition met — 812 shipped 2026-07-18, the sole caller
+-- (transfer-sweep-store.ts) binds the 3-arg overload in both the running and
+-- the deploying build, the function is service-role-only, and the Connect path
+-- is dormant in production.
+
+DROP FUNCTION connect_sweep_record_transfer_failed(uuid, timestamptz);

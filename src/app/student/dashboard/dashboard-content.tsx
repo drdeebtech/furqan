@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Calendar, CheckCircle, Clock, Briefcase, Keyboard, RefreshCw, Sparkles } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Briefcase, Keyboard, MessageSquare, RefreshCw, Sparkles } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
 import { StatCard } from "@/components/shared/stat-card";
@@ -40,7 +40,9 @@ interface DashboardData {
   homeworkPulse: { overdue: number; dueToday: number; dueThisWeek: number; nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null };
   todaySessions: { id: string; teacher_id: string; scheduled_at: string | null; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
-  latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
+  latestEvaluation: { overall_score: number | null; strengths: string | null; next_goals: string | null; evaluation_type: string; created_at: string } | null;
+  subscription: { planName: string | null; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+  unreadMessages: number;
   goal: GoalDashboardData | null;
   achievements: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[];
   // Spec 038 — null when the student has no active prepaid lots; subscription-
@@ -82,33 +84,56 @@ function StudentDashboardContentInner({
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
     activePackages, nextQuiz, lastProgress, resumeLesson, streakInfo,
     homeworkPulse, todaySessions, todayHomework, latestEvaluation,
-    goal, achievements, prepaidWallet, renderedAtMs,
+    goal, achievements, prepaidWallet, subscription, unreadMessages, renderedAtMs,
   } = data;
 
+  const paymentToastShownRef = useRef(false);
   useEffect(() => {
+    // StrictMode (dev) invokes mount effects twice; guard so the toast fires once.
+    if (paymentToastShownRef.current) return;
+    paymentToastShownRef.current = true;
+
     const sub = searchParams.get("subscription");
     const prepaid = searchParams.get("prepaid_hours");
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    // The grant is webhook-driven and async — it may not have landed by the time
+    // Stripe redirects back. Re-fetch on a capped backoff (up to ~30s) so the
+    // newly-granted access appears even on a slower webhook retry — without an
+    // infinite poll and without the student reloading manually.
+    const pollForGrant = () => {
+      for (const delay of [2000, 4000, 8000, 15000, 30000]) {
+        timers.push(setTimeout(() => router.refresh(), delay));
+      }
+    };
+    // Clear the query params without dropping existing history state.
+    const clearQuery = () =>
+      window.history.replaceState(window.history.state, "", "/student/dashboard");
+
     if (searchParams.get("booked") === "1") {
       toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
-      window.history.replaceState(null, "", "/student/dashboard");
+      clearQuery();
     } else if (sub === "success") {
-      toast.success(t("تم تفعيل اشتراكك! يمكنك الآن حجز جلساتك", "Subscription activated! You can now book sessions."));
-      window.history.replaceState(null, "", "/student/dashboard");
+      // Honest copy: the grant is async, so say "activating", not "activated".
+      toast.success(t("تم استلام الدفع — يتم تفعيل وصولك الآن", "Payment received — activating your access now."));
+      clearQuery();
+      pollForGrant();
     } else if (sub === "cancelled") {
       toast.info(t("تم إلغاء عملية الدفع", "Payment was cancelled."));
-      window.history.replaceState(null, "", "/student/dashboard");
+      clearQuery();
     } else if (prepaid === "success") {
       // Spec 038 — Stripe success_url for the prepaid-hours checkout.
       toast.success(
-        t("تم شراء الساعات بنجاح! رصيدك جاهز للاستخدام", "Hours purchased! Your balance is ready to use."),
+        t("تم استلام الدفع — يتم إضافة ساعاتك الآن", "Payment received — adding your hours now."),
       );
-      window.history.replaceState(null, "", "/student/dashboard");
+      clearQuery();
+      pollForGrant();
     } else if (prepaid === "cancelled") {
       toast.info(
         t("تم إلغاء شراء الساعات", "Hours purchase was cancelled."),
       );
-      window.history.replaceState(null, "", "/student/dashboard");
+      clearQuery();
     }
+    return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -303,6 +328,19 @@ function StudentDashboardContentInner({
 
         <AchievementShelf achievements={achievements} />
 
+        {/* S2 — unread-messages indicator (parity with the teacher dashboard). */}
+        {unreadMessages > 0 && (
+          <div className="mb-6">
+            <Link
+              href="/student/messages"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/10 focus-ring"
+            >
+              <MessageSquare size={16} aria-hidden="true" />
+              {t(`${unreadMessages} رسائل غير مقروءة`, `${unreadMessages} unread message${unreadMessages === 1 ? "" : "s"}`)}
+            </Link>
+          </div>
+        )}
+
         <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الإجراء التالي", "Couldn't load the next action")}>
           <section aria-label={t("الإجراء التالي", "Next action")} className="mb-8">
             <NextActionBanner
@@ -330,6 +368,47 @@ function StudentDashboardContentInner({
           </SectionErrorBoundary>
         </div>
 
+        {/* S1 — active-subscription summary. Null unless the student has an
+            active subscription, so package/prepaid-only students don't see it. */}
+        {subscription && (
+          <div className="mt-8">
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الاشتراك", "Couldn't load subscription")}>
+              <section aria-label={t("اشتراكي", "My subscription")} className="rounded-2xl border border-gold/30 bg-gold/5 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold/15">
+                      <Sparkles size={20} className="text-gold" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted">{t("اشتراكي", "My Subscription")}</p>
+                      <p className="font-display text-lg font-bold leading-tight">
+                        {subscription.planName ?? t("خطة نشطة", "Active plan")}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
+                      subscription.cancelAtPeriodEnd
+                        ? "border-warning/40 bg-warning/10 text-warning"
+                        : "border-success/40 bg-success/10 text-success"
+                    }`}
+                  >
+                    {subscription.cancelAtPeriodEnd ? t("يُلغى نهاية الفترة", "Cancels at period end") : t("نشط", "Active")}
+                  </span>
+                </div>
+                {subscription.currentPeriodEnd && (
+                  <p className="mt-3 text-sm text-muted">
+                    {subscription.cancelAtPeriodEnd ? t("ينتهي في", "Ends on") : t("يتجدد في", "Renews on")}{" "}
+                    <span className="font-medium text-foreground">
+                      {new Date(subscription.currentPeriodEnd).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}
+                    </span>
+                  </p>
+                )}
+              </section>
+            </SectionErrorBoundary>
+          </div>
+        )}
+
         {/* Spec 038 — prepaid-hour wallet. Renders only when the student owns
             active prepaid lots; subscription-only students never see it. */}
         {prepaidWallet && (
@@ -340,7 +419,7 @@ function StudentDashboardContentInner({
           </div>
         )}
 
-        {latestEvaluation?.next_goals && (
+        {latestEvaluation && (latestEvaluation.overall_score != null || latestEvaluation.strengths || latestEvaluation.next_goals) && (
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل التركيز", "Couldn't load focus")}>
             <section
               aria-label={t("تركيز الأسبوع من معلمك", "Your teacher's focus for this week")}
@@ -358,9 +437,26 @@ function StudentDashboardContentInner({
                   {t("عرض التقييم الكامل ←", "View full evaluation →")}
                 </Link>
               </div>
-              <p className="mt-2 text-base leading-relaxed text-foreground">
-                {latestEvaluation.next_goals}
-              </p>
+              {latestEvaluation.overall_score != null && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-muted">{t("التقييم العام", "Overall rating")}</span>
+                  <span className="inline-flex items-center rounded-full bg-gold/15 px-2.5 py-0.5 text-sm font-bold text-gold tabular-nums">
+                    {latestEvaluation.overall_score}/10
+                  </span>
+                </div>
+              )}
+              {latestEvaluation.strengths && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-muted">{t("نقاط قوتك", "Your strengths")}</p>
+                  <p className="mt-0.5 text-sm leading-relaxed text-foreground">{latestEvaluation.strengths}</p>
+                </div>
+              )}
+              {latestEvaluation.next_goals && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-muted">{t("التركيز القادم", "Next focus")}</p>
+                  <p className="mt-0.5 text-base leading-relaxed text-foreground">{latestEvaluation.next_goals}</p>
+                </div>
+              )}
             </section>
           </SectionErrorBoundary>
         )}

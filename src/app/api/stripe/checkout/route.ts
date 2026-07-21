@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getStripe } from "@/lib/stripe/client";
+import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
 import { getActivePlanByCode } from "@/lib/domains/billing";
 import { requireRole } from "@/lib/auth/require-admin";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { assertNoActiveHifz, HifzAlreadyActiveError, isPlanHifzProduct, resolveStudentFamilyDiscount } from "@/lib/actions/subscriptions/create-hifz-subscription";
 import { logError } from "@/lib/logger";
 import { getPostHogClient } from "@/lib/posthog-server";
+import {
+  PAYMENTS_UNAVAILABLE_MESSAGE,
+  PAYMENTS_UNAVAILABLE_STATUS,
+} from "@/lib/payments/provider-unavailable";
 
 export const maxDuration = 60;
 
@@ -38,12 +43,39 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  // Per-user rate limit (fix #4): cap Checkout-session creation so a script
+  // cannot spam Stripe object creation. Fail-open — a limiter outage must never
+  // block a real purchase.
+  if (!(await checkRateLimit(userId, "checkout-subscription", 20))) {
+    return NextResponse.json(
+      { error: "Too many checkout attempts — please wait a moment and try again." },
+      { status: 429 },
+    );
+  }
+
   // ── Validate body ─────────────────────────────────────────────────────────
   let parsed: z.infer<typeof Body>;
   try {
     parsed = Body.parse(await request.json());
   } catch {
     return NextResponse.json({ error: "Invalid body: { planCode: string } required" }, { status: 400 });
+  }
+
+  // ── Payment-provider configuration gate ───────────────────────────────────
+  // `getStripe()` throws when STRIPE_SECRET_KEY is unset. Reaching it unguarded
+  // produced an UNHANDLED throw -> Next's HTML 500 -> the client's `res.json()`
+  // rejected -> the student was shown "check your internet" while the real
+  // cause was an unconfigured server (Sentry FURQAN-4C, production 2026-07-09).
+  // Gate here, before any DB work, exactly as the sibling checkout routes do.
+  if (!isStripeConfigured()) {
+    logError("checkout: STRIPE_SECRET_KEY not configured", new Error("no-stripe-key"), {
+      tag: "billing",
+      user_id: userId,
+    });
+    return NextResponse.json(
+      { error: PAYMENTS_UNAVAILABLE_MESSAGE },
+      { status: PAYMENTS_UNAVAILABLE_STATUS },
+    );
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -68,6 +100,13 @@ export async function POST(request: Request) {
 
   const stripe = getStripe();
   const admin = createAdminClient();
+
+  // Idempotency window (R6): a double-click / retry within the same ~10-min
+  // bucket reuses the SAME Stripe key → Stripe returns the first Checkout
+  // Session instead of creating a second one, so the student is never
+  // double-charged. The coupon below shares this bucket so an idempotent
+  // replay sends identical params (a fresh coupon id would break the key).
+  const idemBucket = Math.floor(Date.now() / 600_000);
 
   // ── Single-active-hifz guard (spec 019 US2 / FR-007) ──────────────────────
   // A student may hold at most one active hifz subscription. Check BEFORE the
@@ -107,14 +146,17 @@ export async function POST(request: Request) {
       const discountRes = await resolveStudentFamilyDiscount(admin, userId, productCategory);
       if (discountRes.applies) {
         try {
-          const coupon = await stripe.coupons.create({
-            percent_off: discountRes.discountPct,
-            duration: "once",
-            metadata: {
-              discount_type: discountRes.discountType,
-              setting_key: discountRes.settingKey,
+          const coupon = await stripe.coupons.create(
+            {
+              percent_off: discountRes.discountPct,
+              duration: "once",
+              metadata: {
+                discount_type: discountRes.discountType,
+                setting_key: discountRes.settingKey,
+              },
             },
-          });
+            { idempotencyKey: `coupon:${userId}:${discountRes.discountType}:${idemBucket}` },
+          );
           stripeCouponId = coupon.id;
         } catch (err) {
           logError("checkout: guardian discount coupon creation failed", err, {
@@ -154,7 +196,7 @@ export async function POST(request: Request) {
       subscription_data: { metadata: { student_id: userId, plan_code: plan.planCode } },
       success_url: `${appUrl}/student/dashboard?subscription=success`,
       cancel_url: `${appUrl}/student/dashboard?subscription=cancelled`,
-    });
+    }, { idempotencyKey: `sub-checkout:${userId}:${plan.planCode}:${idemBucket}` });
 
     if (!session.url) {
       logError("checkout: Stripe returned no url", new Error("no url"), {

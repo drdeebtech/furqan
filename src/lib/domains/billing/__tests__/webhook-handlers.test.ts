@@ -11,6 +11,12 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/automation/emit", () => ({
   emitEvent: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/lib/domains/connect/clawback", () => ({
+  applyChargeClawbacks: vi.fn().mockResolvedValue(undefined),
+  disputeChargeId: vi.fn().mockReturnValue(null),
+  holdDisputedEntries: vi.fn().mockResolvedValue(undefined),
+  paymentIntentIdOf: vi.fn((value: unknown) => (typeof value === "string" ? value : null)),
+}));
 vi.mock("@/lib/domains/billing/subscriptions", () => ({
   upsertMirror: vi.fn(),
 }));
@@ -27,7 +33,8 @@ vi.mock("@/lib/domains/billing/events", () => ({
   },
 }));
 vi.mock("@/lib/domains/catalog/credit-grant", () => ({
-  applyPendingTierChangeAtRenewal: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
+  resolvePendingTierChange: vi.fn().mockResolvedValue({ ok: true, pending: null }),
+  finalizePendingTierChange: vi.fn().mockResolvedValue({ ok: true }),
   applyImmediateUpgradeGrant: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
 }));
 
@@ -42,12 +49,16 @@ import {
   handleInvoicePaid,
   handlePaymentFailed,
   handlePaymentIntentSucceeded,
+  handleChargeRefunded,
+  revokeAndCancelOnSubscriptionRefund,
 } from "../webhook-handlers";
+import { emitEvent } from "@/lib/automation/emit";
 import { upsertMirror } from "@/lib/domains/billing/subscriptions";
 import { grantCycle } from "@/lib/domains/billing/orchestrate";
 import {
   applyImmediateUpgradeGrant,
-  applyPendingTierChangeAtRenewal,
+  resolvePendingTierChange,
+  finalizePendingTierChange,
 } from "@/lib/domains/catalog/credit-grant";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -259,14 +270,19 @@ describe("handleInvoicePaid", () => {
   /** Admin that serves a billing_events update + a maybeSingle read (plan/mirror). */
   function makeInvoiceAdmin(opts: {
     plan?: object | null;
+    newPlan?: object | null;
     mirror?: object | null;
   } = {}): MockAdmin {
     const eqFn = vi.fn().mockResolvedValue({ error: null });
     const update = vi.fn().mockReturnValue({ eq: eqFn });
-    const planMaybe = vi.fn().mockResolvedValue({
-      data: opts.plan === undefined ? { id: "plan-1", monthly_credit_count: 4, price_cents: 4000, session_metadata: {}, is_hifz_product: false } : opts.plan,
-      error: null,
-    });
+    const defaultPlan = { id: "plan-1", monthly_credit_count: 4, price_cents: 4000, session_metadata: {}, is_hifz_product: false };
+    // id-aware: the renewal path looks up the current plan, then (on a pending
+    // tier change) the NEW plan by its id — return newPlan for that id so tests
+    // can assert grantCycle received the new tier's values, not just the count.
+    const planFor = (id: unknown) =>
+      opts.newPlan && id === (opts.newPlan as { id: string }).id
+        ? opts.newPlan
+        : opts.plan === undefined ? defaultPlan : opts.plan;
     // A RESOLVABLE mirror (student_id + plan_id) — the old shape returned the
     // plan row for subscriptions reads, so resolveSubscription always failed
     // and the "happy path" test never actually reached the grant step.
@@ -274,7 +290,9 @@ describe("handleInvoicePaid", () => {
       data: opts.mirror === undefined ? { id: "mirror-1", student_id: "stu-1", plan_id: "plan-1" } : opts.mirror,
       error: null,
     });
-    const planEq = vi.fn(() => ({ maybeSingle: planMaybe }));
+    const planEq = vi.fn((_col: string, id: unknown) => ({
+      maybeSingle: vi.fn().mockResolvedValue({ data: planFor(id), error: null }),
+    }));
     const planSelect = vi.fn(() => ({ eq: planEq }));
     const subEq = vi.fn(() => ({ maybeSingle: mirrorMaybe }));
     const subSelect = vi.fn(() => ({ eq: subEq }));
@@ -336,6 +354,55 @@ describe("handleInvoicePaid", () => {
     expect(grantCycle).not.toHaveBeenCalled();
   });
 
+  // ── Webhook payloads omit expandable lists (dahlia) ────────────────────────
+  // Proven live 2026-07-19: every real subscription `invoice.paid` event
+  // arrives WITHOUT `payments` (it is an expandable list, never included in
+  // webhook payloads), so the handler must re-fetch the invoice with the list
+  // expanded instead of dead-ending a PAID invoice's grant as "failed".
+  it("re-fetches the invoice with expanded payments when the event omits the list, then grants", async () => {
+    vi.mocked(grantCycle).mockResolvedValue({ ok: true, grantId: "g-1", created: true } as never);
+    const admin = makeInvoiceAdmin();
+    const bare = invoiceObject();
+    delete (bare as Record<string, unknown>).payments;
+    const ctx = makeEventCtx(admin, "evt-1", bare);
+    const retrieve = vi.fn().mockResolvedValue(invoiceObject());
+    (ctx as { stripe: unknown }).stripe = { invoices: { retrieve } };
+
+    await expect(handleInvoicePaid(ctx)).resolves.toBeUndefined();
+
+    expect(retrieve).toHaveBeenCalledWith("in_1", { expand: ["payments"] });
+    // The recovered PI must actually reach the grant — that flow IS the fix.
+    expect(grantCycle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ stripePaymentIntent: "pi_1" }),
+    );
+  });
+
+  it("does not re-fetch when the payload includes an explicitly empty payments list", async () => {
+    const admin = makeInvoiceAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ payments: { data: [] } }));
+    const retrieve = vi.fn();
+    (ctx as { stripe: unknown }).stripe = { invoices: { retrieve } };
+
+    await handleInvoicePaid(ctx);
+
+    expect(retrieve).not.toHaveBeenCalled();
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  it("throws transient (retryable) when the expanded-payments re-fetch fails", async () => {
+    const admin = makeInvoiceAdmin();
+    const bare = invoiceObject();
+    delete (bare as Record<string, unknown>).payments;
+    const ctx = makeEventCtx(admin, "evt-1", bare);
+    (ctx as { stripe: unknown }).stripe = {
+      invoices: { retrieve: vi.fn().mockRejectedValue(new Error("api down")) },
+    };
+
+    await expect(handleInvoicePaid(ctx)).rejects.toThrow(/invoice payments retrieve failed/);
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
   // ── billing_reason=subscription_update (immediate tier upgrade proration) ──
   // Payment-gating audit 2026-07-15: these invoices must grant ONLY the pending
   // delta (applyImmediateUpgradeGrant) — never the full monthly grantCycle,
@@ -378,7 +445,7 @@ describe("handleInvoicePaid", () => {
 
       expect(applyImmediateUpgradeGrant).toHaveBeenCalledWith(expect.anything(), "mirror-1", "in_1");
       expect(grantCycle).not.toHaveBeenCalled();
-      expect(applyPendingTierChangeAtRenewal).not.toHaveBeenCalled();
+      expect(resolvePendingTierChange).not.toHaveBeenCalled();
       expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "processed" }));
     });
 
@@ -434,6 +501,37 @@ describe("handleInvoicePaid", () => {
     // the grant step (grantCycle is mocked at the module boundary).
     await expect(handleInvoicePaid(ctx)).resolves.toBeUndefined();
     expect(grantCycle).toHaveBeenCalled();
+  });
+
+  it("routes a hifz renewal with a pending tier change through ONE new-tier grant + finalize", async () => {
+    vi.mocked(grantCycle).mockResolvedValue({ ok: true, grantId: "g-1", created: false } as never);
+    vi.mocked(resolvePendingTierChange).mockResolvedValue({
+      ok: true,
+      pending: { pendingId: "ptc-1", newPlanId: "plan-new-tier" },
+    } as never);
+    const admin = makeInvoiceAdmin({
+      plan: { id: "plan-hifz", monthly_credit_count: 4, price_cents: 4000, session_metadata: {}, is_hifz_product: true },
+      newPlan: { id: "plan-new-tier", monthly_credit_count: 8, price_cents: 8000, session_metadata: {} },
+    });
+    const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_cycle" }));
+
+    await handleInvoicePaid(ctx);
+
+    // Exactly ONE cycle grant — never the old tier's cycle plus a second
+    // full new-tier regrant (the double-grant bug; audit 2026-07-18).
+    expect(grantCycle).toHaveBeenCalledTimes(1);
+    // And it grants the NEW tier's plan + credit count, not the old tier's.
+    expect(grantCycle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ planId: "plan-new-tier", creditCount: 8 }),
+    );
+    // The tier switch is finalized with the resolved new plan (no regrant path).
+    expect(finalizePendingTierChange).toHaveBeenCalledWith(
+      expect.anything(),
+      "mirror-1",
+      "ptc-1",
+      "plan-new-tier",
+    );
   });
 });
 
@@ -504,6 +602,37 @@ describe("handlePaymentIntentSucceeded", () => {
 
     await handlePaymentIntentSucceeded(ctx);
 
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  // Subscription-invoice PIs carry NO single-session metadata at all — proven
+  // live 2026-07-19: every subscription purchase tainted the ledger with a
+  // "failed" row. Not ours → ignored; partial metadata still fails loud.
+  it("marks 'ignored' (not 'failed') when the PI carries no single-session metadata at all", async () => {
+    const eqFn = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: eqFn });
+    const admin = { from: vi.fn(() => ({ update })) } as unknown as MockAdmin;
+    const ctx = makeEventCtx(admin, "evt-1", { id: "pi_1", currency: "usd", metadata: {} });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "ignored" }));
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  it("still marks 'failed' on PARTIAL metadata (a malformed single-session payment)", async () => {
+    const eqFn = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: eqFn });
+    const admin = { from: vi.fn(() => ({ update })) } as unknown as MockAdmin;
+    const ctx = makeEventCtx(admin, "evt-1", {
+      id: "pi_1",
+      currency: "usd",
+      metadata: { booking_type: "instant" }, // ids missing — ours, but broken
+    });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
     expect(grantCycle).not.toHaveBeenCalled();
   });
 
@@ -593,5 +722,229 @@ describe("handlePaymentIntentSucceeded — instant scheduled_at (spec 022 slice 
     const call = rpc.mock.calls.find((c) => c[0] === "start_instant_session_booking");
     expect(call).toBeTruthy();
     expect(typeof (call![1] as { p_scheduled_at: unknown }).p_scheduled_at).toBe("string");
+  });
+});
+
+// ── charge.refunded → subscription refund revocation (fix #2) ─────────────────
+describe("revokeAndCancelOnSubscriptionRefund", () => {
+  function makeRefundCtx(opts: {
+    grant?: { subscription_id: string | null } | null;
+    grantErr?: { message: string } | null;
+    mirror?: { stripe_subscription_id: string; status: string } | null;
+    cancelImpl?: () => Promise<unknown>;
+  }) {
+    const payUpdateEq = vi.fn().mockResolvedValue({ error: null });
+    const revokeEq2 = vi.fn().mockResolvedValue({ error: null });
+    const subFlipNeq = vi.fn().mockResolvedValue({ error: null });
+    const cancel = vi.fn(opts.cancelImpl ?? (async () => ({})));
+
+    const from = vi.fn((table: string) => {
+      if (table === "student_packages") {
+        return {
+          // grant lookup: select().eq().not().limit().maybeSingle()
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              not: vi.fn(() => ({
+                limit: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: opts.grant ?? null,
+                    error: opts.grantErr ?? null,
+                  }),
+                })),
+              })),
+            })),
+          })),
+          // revoke: update().eq().eq()
+          update: vi.fn(() => ({ eq: vi.fn(() => ({ eq: revokeEq2 })) })),
+        };
+      }
+      if (table === "subscriptions") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: opts.mirror ?? null, error: null }),
+            })),
+          })),
+          update: vi.fn(() => ({ eq: vi.fn(() => ({ neq: subFlipNeq })) })),
+        };
+      }
+      if (table === "payments") {
+        return { update: vi.fn(() => ({ eq: payUpdateEq })) };
+      }
+      return {};
+    });
+
+    const ctx = {
+      admin: { from },
+      stripe: { subscriptions: { cancel } },
+      event: { id: "evt-r", created: 1, data: { object: {} } },
+      billingEventId: "be-r",
+    } as never;
+    return { ctx, cancel, payUpdateEq, revokeEq2, subFlipNeq };
+  }
+
+  const fullRefund = {
+    id: "ch_1", currency: "usd", refunded: true,
+    payment_intent: "pi_ref_1", amount: 1200, amount_refunded: 1200,
+  } as never;
+
+  it("full subscription refund: flips payment, revokes grants, cancels Stripe sub + mirror", async () => {
+    const { ctx, cancel, payUpdateEq, revokeEq2, subFlipNeq } = makeRefundCtx({
+      grant: { subscription_id: "sub-1" },
+      mirror: { stripe_subscription_id: "sub_stripe_1", status: "active" },
+    });
+    await revokeAndCancelOnSubscriptionRefund(ctx, fullRefund);
+    expect(payUpdateEq).toHaveBeenCalled();
+    expect(revokeEq2).toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledWith("sub_stripe_1");
+    expect(subFlipNeq).toHaveBeenCalled();
+  });
+
+  it("partial refund is a no-op (owner decision: full-refund-only)", async () => {
+    const { ctx, cancel, payUpdateEq } = makeRefundCtx({
+      grant: { subscription_id: "sub-1" },
+      mirror: { stripe_subscription_id: "sub_stripe_1", status: "active" },
+    });
+    const partial = {
+      id: "ch_1", currency: "usd", refunded: false,
+      payment_intent: "pi_ref_1", amount: 1200, amount_refunded: 600,
+    } as never;
+    await revokeAndCancelOnSubscriptionRefund(ctx, partial);
+    expect(payUpdateEq).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it("non-subscription charge (no matching subscription grant) does nothing", async () => {
+    const { ctx, cancel, payUpdateEq } = makeRefundCtx({ grant: null });
+    await revokeAndCancelOnSubscriptionRefund(ctx, fullRefund);
+    expect(payUpdateEq).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it("an already-cancelled Stripe sub does NOT throw (idempotent) and still flips the mirror", async () => {
+    const { ctx, subFlipNeq } = makeRefundCtx({
+      grant: { subscription_id: "sub-1" },
+      mirror: { stripe_subscription_id: "sub_stripe_1", status: "active" },
+      cancelImpl: async () => {
+        throw Object.assign(new Error("No such subscription: sub_stripe_1"), { code: "resource_missing" });
+      },
+    });
+    await expect(revokeAndCancelOnSubscriptionRefund(ctx, fullRefund)).resolves.toBeUndefined();
+    expect(subFlipNeq).toHaveBeenCalled();
+  });
+
+  it("reconciles locally (payment + revoke) but skips Stripe cancel when the mirror lacks a stripe id", async () => {
+    const { ctx, cancel, payUpdateEq, revokeEq2, subFlipNeq } = makeRefundCtx({
+      grant: { subscription_id: "sub-1" },
+      mirror: null,
+    });
+    await revokeAndCancelOnSubscriptionRefund(ctx, fullRefund);
+    expect(payUpdateEq).toHaveBeenCalled();   // payment STILL flipped
+    expect(revokeEq2).toHaveBeenCalled();      // sessions STILL revoked
+    expect(cancel).not.toHaveBeenCalled();     // no Stripe id → cannot cancel there
+    expect(subFlipNeq).not.toHaveBeenCalled();
+  });
+
+  it("throws WebhookTransientError on a grant-lookup DB error (fail-closed → Stripe retries)", async () => {
+    const { ctx } = makeRefundCtx({ grantErr: { message: "db down" } });
+    await expect(revokeAndCancelOnSubscriptionRefund(ctx, fullRefund)).rejects.toThrow(/db down/);
+  });
+});
+
+describe("handleChargeRefunded — single session", () => {
+  function makeSingleSessionRefundCtx(
+    charge: Record<string, unknown>,
+    rpc: ReturnType<typeof vi.fn>,
+  ) {
+    const from = vi.fn((table: string) => {
+      if (table === "student_packages") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              })),
+            })),
+          })),
+        };
+      }
+      if (table === "billing_events") {
+        return {
+          update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+        };
+      }
+      return {};
+    });
+
+    return makeEventCtx({ from, rpc }, "be-refund", charge);
+  }
+
+  it("refund_kind=single_session → finalize + emit booking.cancelled on cancel", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        did_cancel: true,
+        booking_id: "b1",
+        student_id: "s1",
+        teacher_id: "t1",
+      },
+      error: null,
+    });
+    const ctx = makeSingleSessionRefundCtx(
+      {
+        id: "ch_1",
+        amount: 2000,
+        currency: "usd",
+        payment_intent: "pi_1",
+        refunds: {
+          data: [
+            {
+              id: "re_1",
+              amount: 2000,
+              metadata: {
+                refund_request_id: "req_1",
+                refund_kind: "single_session",
+              },
+            },
+          ],
+        },
+      },
+      rpc,
+    );
+
+    await handleChargeRefunded(ctx);
+
+    expect(rpc).toHaveBeenCalledWith("finalize_single_session_refund", {
+      p_refund_request_id: "req_1",
+      p_stripe_ref: "re_1",
+    });
+    expect(emitEvent).toHaveBeenCalledWith(
+      "booking.cancelled",
+      "booking",
+      "b1",
+      expect.objectContaining({ student_id: "s1", teacher_id: "t1" }),
+    );
+  });
+
+  it("external dashboard refund (no metadata) → reconcile_external_single_session_refund", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { did_cancel: false, matched: false },
+      error: null,
+    });
+    const ctx = makeSingleSessionRefundCtx(
+      {
+        id: "ch_2",
+        amount: 1500,
+        currency: "usd",
+        payment_intent: "pi_x",
+        refunds: { data: [{ id: "re_2", amount: 1500, metadata: {} }] },
+      },
+      rpc,
+    );
+
+    await handleChargeRefunded(ctx);
+
+    expect(rpc).toHaveBeenCalledWith("reconcile_external_single_session_refund", {
+      p_payment_intent: "pi_x",
+    });
   });
 });

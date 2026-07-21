@@ -9,6 +9,7 @@ import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import { TeacherList } from "./teacher-list";
 import { OnboardingWizard, type OnboardingPlan } from "./onboarding-wizard";
 import { completeOnboarding } from "@/lib/actions/onboarding";
+import { hasBookableCredit } from "@/lib/domains/package/ledger";
 import type { TeacherData } from "./types";
 
 export const metadata: Metadata = { title: "المعلمون" };
@@ -35,7 +36,7 @@ export default async function TeachersPage({ searchParams }: PageProps) {
   // dashboard guard sent us here for the 3-step wizard (new=1); fetching
   // them unconditionally would add two queries to every teachers-page
   // render for returning students.
-  const [teachersRes, studentStandardRes, subscriptionRes] = await Promise.all([
+  const [teachersRes, studentStandardRes, canBook] = await Promise.all([
     supabase
       .from("teacher_profiles")
       .select("teacher_id, bio, bio_en, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender")
@@ -52,13 +53,11 @@ export default async function TeachersPage({ searchParams }: PageProps) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ recitation_standard: string | null }>(),
-    supabase
-      .from("subscriptions")
-      .select("id")
-      .eq("student_id", user.id)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle(),
+    // Booking affordance. Deliberately NOT "has an active subscription": a
+    // student who bought a single session or a prepaid-hours wallet holds a
+    // spendable credit and must not be shown a subscribe paywall. This mirrors
+    // createBooking's package precondition so the button and the server agree.
+    hasBookableCredit(supabase, user.id),
   ]);
 
   // Default: treat as already-onboarded so we never accidentally show the
@@ -91,7 +90,6 @@ export default async function TeachersPage({ searchParams }: PageProps) {
 
   const teachers = teachersRes.data;
   const studentStandard = studentStandardRes.data?.recitation_standard ?? null;
-  const hasActiveSubscription = !!subscriptionRes.data;
 
   const list = teachers ?? [];
 
@@ -142,7 +140,7 @@ export default async function TeachersPage({ searchParams }: PageProps) {
           teachers={teacherData}
           specialtyLabels={specialtyLabels}
           studentStandard={studentStandard}
-          hasActiveSubscription={hasActiveSubscription}
+          canBook={canBook}
           plans={plans}
           completeAction={completeOnboarding}
         />
@@ -151,7 +149,7 @@ export default async function TeachersPage({ searchParams }: PageProps) {
           teachers={teacherData}
           specialtyLabels={specialtyLabels}
           studentStandard={studentStandard}
-          hasActiveSubscription={hasActiveSubscription}
+          canBook={canBook}
         />
       )}
     </Suspense>

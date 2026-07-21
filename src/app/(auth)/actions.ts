@@ -211,7 +211,7 @@ export async function login(
   }
 
   // Per-email rate limit — credential stuffing defense.
-  // Bypass for @furqan.test accounts so CI/TestSprite runs are never blocked.
+  // Bypass for @furqan.test accounts so CI/automated test runs are never blocked.
   const isTestAccount = email.toLowerCase().endsWith("@furqan.test");
   if (!isTestAccount && !(await checkAuthRate("login-attempt", email, MAX_LOGIN_ATTEMPTS_PER_HOUR))) {
     await recordSecurityAlert({

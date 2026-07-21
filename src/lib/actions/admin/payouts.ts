@@ -20,12 +20,21 @@ import {
 } from "@/lib/domains/connect/manual-settlement";
 import { createConnectManualSettlementStore } from "@/lib/domains/connect/manual-settlement-store";
 
+export type PayoutAdminErrorCode =
+  | "unauthorized"
+  | "invalid_input"
+  | "not_found"
+  | "unavailable"
+  // FR-027a settle refusals — the UI must render these distinctly:
+  | "stale_net"       // net changed since the queue rendered; note carries the fresh USD amount
+  | "teacher_on_hold"; // an active payout hold binds the manual rail too
+
 export type PayoutAdminResult =
   | { ok: true; note?: string }
-  | { ok: false; error: "unauthorized" | "invalid_input" | "not_found" | "unavailable" };
+  | { ok: false; error: PayoutAdminErrorCode; note?: string };
 
-function failure(code: "unauthorized" | "invalid_input" | "not_found" | "unavailable"): PayoutAdminResult {
-  return { ok: false, error: code };
+function failure(code: PayoutAdminErrorCode, note?: string): PayoutAdminResult {
+  return { ok: false, error: code, ...(note !== undefined ? { note } : {}) };
 }
 
 async function adminOr(): Promise<{ id: string } | PayoutAdminResult> {
@@ -144,12 +153,18 @@ export async function setPayoutMethod(input: z.input<typeof methodSchema>): Prom
 
 const settleSchema = z.object({
   entryId: z.uuid(),
-  referenceId: z.string().trim().min(1).max(255),
+  // Optional: the zero-net close pays nothing, so no reference exists. The
+  // domain schema still enforces reference-required whenever net > 0.
+  referenceId: z.string().trim().max(255).optional(),
+  // FR-027a optimistic fence: the net the queue displayed to the admin. The
+  // RPC re-derives the true net at its serialization point and refuses on drift.
+  expectedNetCents: z.number().int().min(0),
 });
 
 /**
- * FR-027: settle one manual_due entry off-Stripe. The RPC's fenced UPDATE is
- * the serialization point (replay-safe; refuses stripe_connect entries); the
+ * FR-027/FR-027a: settle one manual_due entry off-Stripe at its NET value.
+ * The RPC's locked conditional update is the serialization point (replay-safe;
+ * refuses stripe_connect entries; nets settle-time debt; honors holds); the
  * settling admin comes from the session, never from input.
  */
 export async function settleManualDueEntry(input: z.input<typeof settleSchema>): Promise<PayoutAdminResult> {
@@ -159,12 +174,34 @@ export async function settleManualDueEntry(input: z.input<typeof settleSchema>):
   if (!parsed.success) return failure("invalid_input");
 
   try {
-    const { settled } = await settleManualPayout(createConnectManualSettlementStore(), {
+    const outcome = await settleManualPayout(createConnectManualSettlementStore(), {
       entryId: parsed.data.entryId,
-      referenceId: parsed.data.referenceId,
+      referenceId: parsed.data.referenceId || null,
       settlingAdmin: admin.id,
+      expectedNetCents: parsed.data.expectedNetCents,
     });
-    if (!settled) return failure("not_found"); // replay / wrong status / wrong rail — legit no-op
+    switch (outcome.outcome) {
+      case "settled":
+        revalidatePath("/admin/payouts");
+        return {
+          ok: true,
+          note:
+            outcome.recoveredCents > 0
+              ? `paid $${(outcome.netPaidCents / 100).toFixed(2)} net of $${(outcome.recoveredCents / 100).toFixed(2)} debt`
+              : undefined,
+        };
+      case "closed_debt_recovered":
+        revalidatePath("/admin/payouts");
+        return { ok: true, note: "closed — fully consumed by outstanding debt, nothing to pay" };
+      case "stale_net":
+        // Refresh so the queue re-renders with the fresh number.
+        revalidatePath("/admin/payouts");
+        return failure("stale_net", `net is now $${(outcome.netDueCents / 100).toFixed(2)} — re-check and retry`);
+      case "teacher_on_hold":
+        return failure("teacher_on_hold");
+      case "not_found":
+        return failure("not_found"); // replay / wrong status / wrong rail — legit no-op
+    }
   } catch (e) {
     if (e instanceof ManualSettlementError) return failure("invalid_input");
     logError("admin payouts: manual settle failed", e, {
@@ -172,6 +209,36 @@ export async function settleManualDueEntry(input: z.input<typeof settleSchema>):
     });
     return failure("unavailable");
   }
+}
+
+const requeueSchema = z.object({ entryId: z.uuid() });
+
+/**
+ * FR-011: audited recovery for an entry parked held/transfer_failed after
+ * exhausting its retry budget — back to `pending` with counters reset; the
+ * next sweep re-attempts it (Stripe idempotency replays the same Transfer).
+ */
+export async function requeueFailedEntry(input: z.input<typeof requeueSchema>): Promise<PayoutAdminResult> {
+  const admin = await adminOr();
+  if ("ok" in admin) return admin;
+  const parsed = requeueSchema.safeParse(input);
+  if (!parsed.success) return failure("invalid_input");
+
+  let result: unknown;
+  try {
+    const { data, error } = await callRpc(createAdminClient(), "connect_admin_requeue_failed_entry", {
+      p_entry_id: parsed.data.entryId,
+      p_actor: admin.id,
+    });
+    if (error) throw error;
+    result = data;
+  } catch (e) {
+    logError("admin payouts: requeue failed entry failed", e, {
+      tag: "admin-payouts", route: "/admin/payouts", widget: "failed-requeue", userId: admin.id,
+    });
+    return failure("unavailable");
+  }
+  if (result !== "requeued") return failure("not_found"); // not terminal-failed — legit no-op
   revalidatePath("/admin/payouts");
   return { ok: true };
 }
@@ -181,6 +248,9 @@ interface ManualDueCsvRow {
   teacher_id: string;
   full_name: string;
   amount_cents: number;
+  /** FR-027a: what the admin actually pays (remaining minus FIFO debt share). */
+  net_due_cents: number;
+  recovered_cents: number;
   session_delivery_id: string | null;
   delivered_at: string | null;
   created_at: string;
@@ -222,12 +292,16 @@ export async function exportManualDueCsv(): Promise<
     const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
     return `"${safe.replaceAll('"', '""')}"`;
   };
+  // net_due_usd is THE payable column (FR-027a) — amount_usd stays as the gross
+  // for reconciliation; already_recovered_usd explains any difference.
   const csv = [
-    "entry_id,teacher_id,teacher_name,amount_usd,session_delivery_id,delivered_at,entry_created_at",
+    "entry_id,teacher_id,teacher_name,amount_usd,net_due_usd,already_recovered_usd,session_delivery_id,delivered_at,entry_created_at",
     ...manualDue.map((r) =>
       [
         esc(r.entry_id), esc(r.teacher_id), esc(r.full_name),
         esc((r.amount_cents / 100).toFixed(2)),
+        esc((r.net_due_cents / 100).toFixed(2)),
+        esc((r.recovered_cents / 100).toFixed(2)),
         esc(r.session_delivery_id), esc(r.delivered_at), esc(r.created_at),
       ].join(","),
     ),

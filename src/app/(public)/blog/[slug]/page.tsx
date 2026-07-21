@@ -20,7 +20,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .select("title_ar, title_en, excerpt_ar, excerpt_en, slug, published_at, updated_at")
     .eq("slug", slug)
     .eq("is_published", true)
-    .single<{
+    // maybeSingle(): an unknown slug is a valid miss (bots probe /blog/wp-login.php),
+    // not an error. .single() returns HTTP 406 + PGRST116, which createObservedFetch
+    // reports to Sentry — the code already handles null below (Sentry FURQAN-4G/4B).
+    .maybeSingle<{
       title_ar: string;
       title_en: string | null;
       excerpt_ar: string;
@@ -83,7 +86,9 @@ export default async function ArticlePage({ params }: Props) {
     .select("*")
     .eq("slug", slug)
     .eq("is_published", true)
-    .single<BlogPost>();
+    // maybeSingle(): same as generateMetadata above — an unknown slug is a miss,
+    // handled by the redirect below, not a 406 worth paging Sentry over.
+    .maybeSingle<BlogPost>();
 
   if (!post) redirect("/blog");
 

@@ -106,10 +106,15 @@ INSERT INTO public.teacher_earning_entries (id, teacher_id, kind, amount_cents, 
   ('00000000-0000-4000-9000-0000000000ee','00000000-0000-4000-9000-000000000e01','session',1000,'00000000-0000-4000-9000-000000d000e1'), -- ENP payouts_enabled=false
   ('00000000-0000-4000-9000-0000000000ef','00000000-0000-4000-9000-000000000f01','session',1000,'00000000-0000-4000-9000-000000d000f1'); -- EH  active hold
 
--- Clawbacks give A (1000) and B (400) outstanding debt.
-INSERT INTO public.teacher_earning_entries (id, teacher_id, kind, amount_cents) VALUES
-  ('00000000-0000-4000-9000-00000000cb0a','00000000-0000-4000-9000-000000000a01','clawback',-1000),
-  ('00000000-0000-4000-9000-00000000cb0b','00000000-0000-4000-9000-000000000b01','clawback', -400);
+-- Clawbacks give A (1000) and B (400) outstanding debt (provenance links
+-- required by chk_entry_clawback_links, 20260807 — pointed at each teacher's
+-- own earning entry).
+INSERT INTO public.teacher_earning_entries
+  (id, teacher_id, kind, amount_cents, clawback_of_entry_id, source_reference_id) VALUES
+  ('00000000-0000-4000-9000-00000000cb0a','00000000-0000-4000-9000-000000000a01','clawback',-1000,
+   '00000000-0000-4000-9000-0000000000e2','walk-sweep-claw-a'),
+  ('00000000-0000-4000-9000-00000000cb0b','00000000-0000-4000-9000-000000000b01','clawback', -400,
+   '00000000-0000-4000-9000-0000000000eb','walk-sweep-claw-b');
 
 -- ════════════════════════════════════════════════════════════════════════
 -- [DORMANCY] cutover empty (migration default) ⇒ claim returns ZERO rows even
@@ -199,7 +204,7 @@ DO $$
 DECLARE ok boolean; v_status text;
 BEGIN
   -- Wrong lease on EC.
-  ok := connect_sweep_record_transfer_failed('00000000-0000-4000-9000-0000000000ec', now() - interval '1 second');
+  ok := connect_sweep_record_transfer_failed('00000000-0000-4000-9000-0000000000ec', now() - interval '1 second', 'walk: stale lease probe');
   IF ok THEN RAISE EXCEPTION '[fence] wrong lease must return false'; END IF;
   SELECT status INTO v_status FROM teacher_earning_entries WHERE id='00000000-0000-4000-9000-0000000000ec';
   IF v_status <> 'processing' THEN RAISE EXCEPTION '[fence] EC must stay processing after a rejected fence, got %', v_status; END IF;
@@ -263,7 +268,7 @@ END $$;
 DO $$
 DECLARE ok boolean; v int; v_claim timestamptz;
 BEGIN
-  ok := connect_sweep_record_transfer_failed('00000000-0000-4000-9000-0000000000ec', now());
+  ok := connect_sweep_record_transfer_failed('00000000-0000-4000-9000-0000000000ec', now(), 'walk: stripe failure probe');
   IF NOT ok THEN RAISE EXCEPTION '[fail] recordTransferFailed should return true'; END IF;
 
   IF (SELECT status FROM teacher_earning_entries WHERE id='00000000-0000-4000-9000-0000000000ec') <> 'pending'

@@ -95,7 +95,11 @@ export interface StudentDashboardData {
   homeworkPulse: { overdue: number; dueToday: number; dueThisWeek: number; nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null };
   todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
-  latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
+  latestEvaluation: { overall_score: number | null; strengths: string | null; next_goals: string | null; evaluation_type: string; created_at: string } | null;
+  /** S1 — active-subscription summary; null unless the student has one active. */
+  subscription: { planName: string | null; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+  /** S2 — unread messages across the student's conversations. */
+  unreadMessages: number;
   goal: GoalDashboardData | null;
   /** Earned achievement badges (spec 033). Empty array when none earned yet. */
   achievements: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[];
@@ -184,7 +188,7 @@ export async function studentDashboardView(
     .eq("student_id", studentId).eq("status", "completed").gte("created_at", monthStart);
   if (monthEnd) monthQ = monthQ.lte("created_at", monthEnd);
 
-  const [profileRes, nextBookingRes, totalRes, monthRes, pendingRes, activeSubRes, prepaidCountRes] = await Promise.all([
+  const [profileRes, nextBookingRes, totalRes, monthRes, pendingRes, activeSubRes, prepaidCountRes, convosRes] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", studentId).single<{ full_name: string | null }>(),
     supabase.from("bookings")
       .select("id, teacher_id, scheduled_at, duration_min, session_type, status")
@@ -217,6 +221,8 @@ export async function studentDashboardView(
       .eq("student_id", studentId)
       .eq("product_type", "prepaid_hours")
       .eq("status", "active"),
+    // S2 — conversation ids for the unread-messages count (resolved in Batch 3).
+    supabase.from("conversations").select("id").eq("student_id", studentId).returns<{ id: string }[]>(),
   ]);
 
   const profileLoad = loadOrFail(profileRes, { full_name: null }, { route: ROUTE, widget: "profile" });
@@ -235,8 +241,14 @@ export async function studentDashboardView(
   // Spec 038 — owning prepaid hours is real activity; such a student sees the
   // full dashboard (incl. the wallet widget), never the "new student" state.
   const hasPrepaidHours = (prepaidCountRes.count ?? 0) > 0;
+  // S2 — the student's conversation ids feed the unread-messages count in
+  // Batch 3. Routed through loadOrFail so a failed read is logged and flips
+  // anyFailed (no silent `?? []` default — silent-fail policy).
+  const convosLoad = loadOrFail(convosRes, [] as { id: string }[], { route: ROUTE, widget: "conversations" });
+  anyFailed = anyFailed || convosLoad.failed;
+  const convIds = convosLoad.data.map((c) => c.id);
 
-  const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking && !hasActiveSub && !hasPrepaidHours;
+  const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking && !hasActiveSub && !hasPrepaidHours && convIds.length === 0;
   if (isNewStudent) {
     return {
       data: emptyData(fullName, now),
@@ -310,7 +322,7 @@ export async function studentDashboardView(
     teacherProfileRes, sessionRes,
     packagesRes, continueWatching, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
     latestEvalRes, goalLoad, achievementsRes, prepaidLotsRes, prepaidEventsRes,
-    todaySessionsRes, todayHomeworkRes,
+    todaySessionsRes, todayHomeworkRes, subscriptionRes, unreadRes,
   ] = await Promise.all([
     // Batch 2: next-booking teacher name + sessionId (no-op without nextBooking).
     nextBooking
@@ -337,12 +349,11 @@ export async function studentDashboardView(
     getStudentStreak(supabase, studentId),
     getStudentHomeworkPulse(supabase, studentId),
     supabase.from("session_evaluations")
-      .select("next_goals, evaluation_type, created_at")
+      .select("overall_score, strengths, next_goals, evaluation_type, created_at")
       .eq("student_id", studentId)
-      .not("next_goals", "is", null)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle<{ next_goals: string | null; evaluation_type: string; created_at: string }>(),
+      .maybeSingle<{ overall_score: number | null; strengths: string | null; next_goals: string | null; evaluation_type: string; created_at: string }>(),
     helperOrFail(
       () => getGoalDashboardData(supabase, studentId, now),
       null,
@@ -379,6 +390,18 @@ export async function studentDashboardView(
       .gte("due_date", todayStart.toISOString()).lte("due_date", todayEnd.toISOString())
       .order("due_date", { ascending: true })
       .returns<{ id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[]>(),
+    // S1 — active subscription (plan_id resolved to a name in a follow-up read).
+    supabase.from("subscriptions")
+      .select("plan_id, status, current_period_end, cancel_at_period_end")
+      .eq("student_id", studentId).eq("status", "active")
+      .order("current_period_end", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ plan_id: string; status: string; current_period_end: string | null; cancel_at_period_end: boolean }>(),
+    // S2 — unread messages; skip the query when the student has no conversations.
+    convIds.length > 0
+      ? supabase.from("messages").select("id", { count: "exact", head: true })
+          .in("conversation_id", convIds).neq("sender_id", studentId).eq("is_read", false)
+      : Promise.resolve({ count: 0, error: null }),
   ]);
 
   // Batch 2 post-process: only touch nameMap/sessionId when nextBooking exists.
@@ -453,6 +476,39 @@ export async function studentDashboardView(
   anyFailed = anyFailed || todaySessionsLoad.failed || todayHomeworkLoad.failed;
   const todaySessions = todaySessionsLoad.data;
   const todayHomework = todayHomeworkLoad.data;
+
+  // S1 — active-subscription summary. The plan name is resolved with a small
+  // follow-up read (mirrors the today-teacher-name resolution below), avoiding
+  // an embedded PostgREST join. Null unless the student has an active
+  // subscription, so package/prepaid-only students never see the card.
+  const subscriptionLoad = loadOrFail(subscriptionRes, null, { route: ROUTE, widget: "subscription" });
+  anyFailed = anyFailed || subscriptionLoad.failed;
+  let subscription: {
+    planName: string | null;
+    status: string;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+  } | null = null;
+  if (subscriptionLoad.data) {
+    const sub = subscriptionLoad.data;
+    const planRes = await supabase
+      .from("subscription_plans").select("name").eq("id", sub.plan_id)
+      .maybeSingle<{ name: string }>();
+    const planLoad = loadOrFail(planRes, null, { route: ROUTE, widget: "subscription-plan" });
+    anyFailed = anyFailed || planLoad.failed;
+    subscription = {
+      planName: planLoad.data ? planLoad.data.name : null,
+      status: sub.status,
+      currentPeriodEnd: sub.current_period_end,
+      cancelAtPeriodEnd: sub.cancel_at_period_end,
+    };
+  }
+
+  // S2 — unread messages in the student's conversations (mirrors the teacher
+  // dashboard read). Non-critical: a failed read just yields no badge.
+  const unreadLoad = countOrFail(unreadRes, { route: ROUTE, widget: "unread-messages" });
+  anyFailed = anyFailed || unreadLoad.failed;
+  const unreadMessages = unreadLoad.count;
 
   // Resolve teacher names for today's sessions (only if not already in nameMap).
   const todayTeacherIds = todaySessions
@@ -533,6 +589,8 @@ export async function studentDashboardView(
       goal: goalLoad.data,
       achievements,
       prepaidWallet,
+      subscription,
+      unreadMessages,
       renderedAtMs: now.getTime(),
     },
     anyFailed,
@@ -564,6 +622,8 @@ function emptyData(fullName: string | null, now: Date): StudentDashboardData {
     goal: null,
     achievements: [],
     prepaidWallet: null,
+    subscription: null,
+    unreadMessages: 0,
     renderedAtMs: now.getTime(),
   };
 }
