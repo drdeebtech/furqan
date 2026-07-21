@@ -17,8 +17,7 @@ interface Plan {
   price_cents: number;
 }
 
-/** The one real product decision: shared teacher time, or private. */
-export type Track = "group" | "private";
+import { selectVisibleTracks, type Track } from "./track";
 
 interface PlanTier {
   key: Track;
@@ -105,7 +104,7 @@ export function arabicCounted(n: number, singular: string, dual: string, plural:
   return singular;
 }
 
-function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string {
+export function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string {
   const n = plan.monthly_credit_count;
   if (plan.plan_code.startsWith("hifz_individual")) {
     const noun = arabicCounted(n, "ساعة", "ساعتان", "ساعات");
@@ -129,7 +128,7 @@ export function perUnitCents(plan: Plan): number {
     : plan.price_cents;
 }
 
-function unitLabel(plan: Plan, t: (ar: string, en: string) => string): string {
+export function unitLabel(plan: Plan, t: (ar: string, en: string) => string): string {
   return plan.plan_code.startsWith("hifz_individual")
     ? t("للساعة", "per hour")
     : t("للحصة", "per session");
@@ -744,11 +743,11 @@ export function PricingContent({
     },
   ];
 
-  const availableTiers = tiers.filter((tier) => tier.plans.length > 0);
-  // An unknown ?track= value shows everything rather than an empty page.
-  const visibleTiers = track
-    ? availableTiers.filter((tier) => tier.key === track)
-    : availableTiers;
+  // Filtering lives in ./track so it can be unit-tested directly. An unknown
+  // ?track= value has already been normalised to null by parseTrack, which
+  // means "show everything" rather than an empty page.
+  const availableTiers = selectVisibleTracks(tiers, null);
+  const visibleTiers = selectVisibleTracks(tiers, track);
 
   return (
     <div>

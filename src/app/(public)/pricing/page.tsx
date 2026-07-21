@@ -9,7 +9,8 @@ import {
   PREPAID_DEFAULT_CUSTOM_MIN as DEFAULT_CUSTOM_MIN,
   PREPAID_DEFAULT_CUSTOM_MAX as DEFAULT_CUSTOM_MAX,
 } from "@/lib/domains/billing/prepaid-defaults";
-import { PricingContent, type Faq, type PrepaidConfig, type Track } from "./content";
+import { PricingContent, type Faq, type PrepaidConfig } from "./content";
+import { parseTrack } from "./track";
 
 export const metadata: Metadata = {
   title: "الأسعار — اشتراكات حفظ القرآن",
@@ -59,12 +60,6 @@ function parseBound(raw: string | null, fallback: number): number {
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 1) return fallback;
   return Math.floor(n);
-}
-
-/** Validate `?track=` at the boundary — anything unrecognised means "show all". */
-function parseTrack(raw: string | string[] | undefined): Track | null {
-  const v = Array.isArray(raw) ? raw[0] : raw;
-  return v === "group" || v === "private" ? v : null;
 }
 
 export default async function PricingPage({
