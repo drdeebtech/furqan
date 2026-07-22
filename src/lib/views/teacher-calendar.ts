@@ -3,7 +3,7 @@ import type { ServerClient } from "@/lib/supabase/types";
 /**
  * Teacher calendar read module — the `/teacher/calendar` page.
  *
- * Behavior-preserving extraction from `teacher-queries.ts` (Task 4 of the
+ * Behavior-preserving extraction from the retired teacher-roster read module (Task 4 of the
  * architecture-deepening series). The injected `supabase` client is the
  * test seam. No name-resolve or date-window literals here — purely a
  * mechanical signature change (client injected as first param).

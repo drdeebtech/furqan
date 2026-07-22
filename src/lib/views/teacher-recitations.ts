@@ -3,7 +3,7 @@ import type { ServerClient } from "@/lib/supabase/types";
 /**
  * Teacher recitation-roster read module — the `/teacher/recitations` page.
  *
- * Behavior-preserving extraction from `teacher-queries.ts` (Task 4 of the
+ * Behavior-preserving extraction from the retired teacher-roster read module (Task 4 of the
  * architecture-deepening series). The injected `supabase` client is the
  * test seam.
  *

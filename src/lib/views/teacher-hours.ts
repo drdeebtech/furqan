@@ -4,7 +4,7 @@ import { recentWindow } from "@/lib/views/_shared/teacher-reads";
 /**
  * Teacher teaching-hours read module — the `/teacher/time-tracker` page.
  *
- * Behavior-preserving extraction from `teacher-queries.ts` (Task 4 of the
+ * Behavior-preserving extraction from the retired teacher-roster read module (Task 4 of the
  * architecture-deepening series). The injected `supabase` client is the
  * test seam. The only intentional change is collapsing the inline 30-day /
  * 7-day window literals into the shared `recentWindow` helper —

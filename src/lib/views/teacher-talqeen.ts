@@ -4,7 +4,7 @@ import { recentWindow, resolveStudentNames } from "@/lib/views/_shared/teacher-r
 /**
  * Teacher talqeen-queue read module — the `/teacher/talqeen` page.
  *
- * Behavior-preserving extraction from `teacher-queries.ts` (Task 4 of the
+ * Behavior-preserving extraction from the retired teacher-roster read module (Task 4 of the
  * architecture-deepening series). The injected `supabase` client is the
  * test seam. The only intentional change is collapsing the inline
  * `public_profiles` name-resolve into the shared `resolveStudentNames`

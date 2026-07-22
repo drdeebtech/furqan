@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowDown, ArrowUp, Minus, TrendingUp } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
-import type { TeacherRosterProgressRow } from "@/lib/teacher-queries";
+import type { TeacherRosterProgressRow } from "@/lib/views/teacher-roster-progress";
 
 type SortKey =
   | "name"
