@@ -36,9 +36,25 @@ export interface NotifyOptions {
  * channel infrastructure exists, this dispatcher can grow `EmailAdapter` /
  * `WhatsAppAdapter` seams.
  *
- * Non-blocking — wrap in try/catch at the call site if you care about failures.
+ * Never-throw: the returned promise never rejects. Failures are logged
+ * via logError (tag: "dispatcher"). Call it bare — no try/catch needed.
  */
 export async function notify(opts: NotifyOptions): Promise<void> {
+  try {
+    await dispatchNotification(opts);
+  } catch (err) {
+    // Best-effort contract: a notification must never break the action
+    // that triggered it. The insert path already logs its own failures;
+    // this guard catches what it can't — client construction, the
+    // preferences read, and anything unexpected.
+    logError("notify: dispatch failed", err, {
+      tag: "dispatcher",
+      metadata: { userId: opts.userId, type: opts.type },
+    });
+  }
+}
+
+async function dispatchNotification(opts: NotifyOptions): Promise<void> {
   // Service-role client. The dispatcher is system bookkeeping that
   // writes to RLS-protected tables (notifications, message_delivery_log)
   // on behalf of the platform, not the calling user. Anonymous /
