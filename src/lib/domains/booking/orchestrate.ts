@@ -7,6 +7,7 @@ import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import type { BookingStatus } from "@/types/database";
+import { updateBookingStatus } from "./actions";
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
@@ -14,7 +15,12 @@ import {
   BookingNotFoundError,
   BookingRoomCreationError,
 } from "./types";
-import type { ConfirmBookingInput, ConfirmBookingResult } from "./types";
+import type {
+  CancelBookingInput,
+  CancelBookingResult,
+  ConfirmBookingInput,
+  ConfirmBookingResult,
+} from "./types";
 
 /**
  * Booking domain — use-case orchestrator (ADR-0004).
@@ -230,5 +236,94 @@ export async function confirmBooking(
     roomName: room.name,
     studentId: booking.student_id,
     teacherId: booking.teacher_id,
+  };
+}
+
+/**
+ * Booking domain — cancel orchestrator (ADR-0004 follow-up).
+ *
+ * One place owns "what happens when a booking is cancelled":
+ *   1. Domain write via updateBookingStatus (audit row, no-op
+ *      short-circuit, throws on failure).
+ *   2. Best-effort post-commit: notify(student) with role-appropriate
+ *      wording + emitEvent("booking.cancelled"). Skipped entirely when
+ *      the booking was already cancelled (idempotent retry).
+ *
+ * Replaces three divergent inline paths (teacher hand-rolled everything;
+ * admin never notified the student; bulk stays intentionally silent and
+ * does NOT use this orchestrator).
+ * Role-specific preconditions (teacher ownership check) stay at the
+ * route adapter, mirroring confirmBooking's eval-gate precedent.
+ */
+export async function cancelBooking(
+  input: CancelBookingInput,
+): Promise<CancelBookingResult> {
+  const { bookingId, actorId, actorRole, reason } = input;
+
+  const write = await updateBookingStatus({
+    bookingId,
+    newStatus: "cancelled",
+    actorId,
+    reason,
+  });
+
+  if (write.alreadyInTargetState) {
+    return {
+      bookingId,
+      studentId: write.studentId,
+      teacherId: write.teacherId,
+      alreadyCancelled: true,
+    };
+  }
+
+  const message =
+    actorRole === "teacher"
+      ? {
+          title: "تم رفض حجزك",
+          body: "للأسف تم رفض حجزك من قبل المعلم — يمكنك حجز موعد آخر",
+        }
+      : {
+          title: "تم إلغاء حجزك",
+          body: "تم إلغاء حجزك من قبل الإدارة — يمكنك حجز موعد بديل",
+        };
+
+  // notify() is never-throw (Task 1), but keep the .catch for defense in
+  // depth against a future regression — matches confirmBooking's shape.
+  await notify({
+    userId: write.studentId,
+    type: "booking",
+    title: message.title,
+    body: message.body,
+    entityType: "booking",
+    entityId: bookingId,
+  }).catch((err) =>
+    logError("cancelBooking: notify(student) failed", err, {
+      tag: "booking-orchestrate",
+      metadata: { bookingId, studentId: write.studentId },
+    }),
+  );
+
+  await emitEvent(
+    "booking.cancelled",
+    "booking",
+    bookingId,
+    {
+      student_id: write.studentId,
+      teacher_id: write.teacherId,
+      new_status: "cancelled",
+    },
+    actorId,
+  ).catch((err) =>
+    logError("cancelBooking: emitEvent(booking.cancelled) failed", err, {
+      tag: "booking-orchestrate",
+      metadata: { bookingId },
+    }),
+  );
+
+  return {
+    bookingId,
+    studentId: write.studentId,
+    teacherId: write.teacherId,
+    alreadyCancelled: false,
   };
 }

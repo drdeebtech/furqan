@@ -7,8 +7,7 @@ import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createRoom } from "@/lib/daily";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
-import { emitEvent } from "@/lib/automation/emit";
-import { confirmBooking } from "@/lib/domains/booking/orchestrate";
+import { cancelBooking, confirmBooking } from "@/lib/domains/booking/orchestrate";
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
@@ -248,68 +247,24 @@ export async function updateBookingStatus(
       }
     }
   } else if (status === "cancelled") {
-    // Cancellation path — out of scope for the orchestrator pilot
-    // (ADR-0004 §"Out of scope: cancelBooking choreography"). Stays
-    // inline. The validate_booking_status trigger guards invalid
-    // transitions; RLS ensures only the booking parties can update.
-    const { error } = await supabase
-      .from("bookings")
-      .update({ status } as TableUpdate<"bookings">)
-      .eq("id", bookingId)
-      .eq("teacher_id", user.id);
-
-    if (error) {
-      logError("updateBookingStatus: bookings cancel update failed", error, {
+    // Cancel orchestrator (ADR-0004 follow-up). Ownership was verified by
+    // the pre-read above (.eq("teacher_id", user.id)); the choreography
+    // (domain write + audit + student notify + booking.cancelled emit)
+    // lives in the orchestrator.
+    try {
+      await cancelBooking({ bookingId, actorId: user.id, actorRole: "teacher" });
+    } catch (err) {
+      if (err instanceof BookingNotFoundError) {
+        return { error: "الحجز غير موجود" };
+      }
+      logError("updateBookingStatus: cancel orchestrator failed", err, {
         tag: "bookings",
         actionName: "teacher.updateBookingStatus",
         severity: "warning",
         bookingId,
-        newStatus: status,
       });
       return { error: "حدث خطأ أثناء تحديث الحجز" };
     }
-
-    // admin: best-effort audit_log inserts (service-role telemetry) (issue #523)
-    const { error: cancelAuditErr } = await createAdminClient()
-      .from("audit_log")
-      .insert({
-        changed_by: user.id,
-        action:     "booking.cancelled",
-        table_name: "bookings",
-        record_id:  bookingId,
-        new_data:   { student_id: booking.student_id, teacher_id: user.id },
-      } satisfies TableInsert<"audit_log">);
-    if (cancelAuditErr) logError("updateBookingStatus: cancel audit insert failed", cancelAuditErr, { tag: "bookings", actionName: "teacher.updateBookingStatus" });
-
-    try {
-      await notify({
-        userId: booking.student_id,
-        type: "booking",
-        title: "تم رفض حجزك",
-        body: "للأسف تم رفض حجزك من قبل المعلم — يمكنك حجز موعد آخر",
-        entityType: "booking",
-        entityId: bookingId,
-      });
-    } catch (err) {
-      logError("updateBookingStatus: cancel notify failed", err, {
-        tag: "bookings",
-        actionName: "teacher.updateBookingStatus",
-        bookingId,
-      });
-    }
-
-    // Emit booking.cancelled. Pre-orchestrator code emitted
-    // booking.confirmed unconditionally for both branches (the emit
-    // sat outside the if/else); fixing in-place since this path is
-    // already being touched.
-    await emitEvent("booking.cancelled", "booking", bookingId, {
-      student_id: booking.student_id,
-      teacher_id: user.id,
-    }).catch((err) => logError("emit booking.cancelled failed", err, {
-      tag: "automation",
-      actionName: "teacher.updateBookingStatus",
-      event: "booking.cancelled",
-    }));
   }
 
   revalidatePath("/teacher/dashboard");
