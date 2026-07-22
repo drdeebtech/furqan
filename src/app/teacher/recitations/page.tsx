@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { getTeacherRecitationRoster } from "@/lib/teacher-queries";
+import { getTeacherRecitationRoster } from "@/lib/views/teacher-recitations";
 import { RecitationRoster } from "./recitation-roster";
 
 export const metadata: Metadata = { title: "تسميعات الطلاب" };
@@ -18,7 +18,7 @@ export default async function TeacherRecitationsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const rows = await getTeacherRecitationRoster(user.id);
+  const rows = await getTeacherRecitationRoster(supabase, user.id);
   const atRiskCount = rows.filter((r) => r.streakBreakRisk).length;
 
   return (
