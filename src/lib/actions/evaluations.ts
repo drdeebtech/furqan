@@ -3,11 +3,9 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { notify } from "@/lib/notifications/dispatcher";
-import { emitEvent } from "@/lib/automation/emit";
-import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
-import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import { createEvaluationRecord } from "@/lib/domains/progress/actions";
 import { UserError } from "@/lib/actions/user-error";
 
 // Tagged error wrapper for "user-mistake-not-infra-fault" throws (missing
@@ -62,58 +60,32 @@ const createEvaluationBase = loudAction<z.infer<typeof createEvaluationSchema>, 
     action: "INSERT",
   },
   preflight: requireAdminActor,
-  handler: async (input) => {
+  handler: async (input, { actorId }) => {
     const supabase = await createClient();
 
-    const { error } = await supabase.from("session_evaluations").insert({
-      student_id: input.student_id,
-      teacher_id: input.teacher_id,
-      evaluation_type: input.evaluation_type as TableInsert<"session_evaluations">["evaluation_type"],
-      evaluation_date: input.evaluation_date,
-      hifz_score: input.hifz_score,
-      tajweed_score: input.tajweed_score,
-      fluency_score: input.fluency_score,
-      attendance_score: input.attendance_score,
-      overall_score: input.overall_score,
-      strengths: input.strengths,
-      areas_for_improvement: input.areas_for_improvement,
-      next_goals: input.next_goals,
-      teacher_comments: input.teacher_comments,
-    } satisfies TableInsert<"session_evaluations">);
-
-    if (error) throw error;
-
-    // Best-effort notify both parties. notify() failures already log via
-    // logError; we tolerate them so eval-create remains successful even
-    // if the dispatcher hiccups.
-    for (const uid of [input.student_id, input.teacher_id]) {
-      try {
-        await notify({
-          userId: uid,
-          type: "system",
-          title: "تقييم جديد",
-          body: "تم إضافة تقييم جديد — يمكنك الاطلاع عليه من صفحة التقييمات",
-        });
-      } catch (err) {
-        logError("notify failed during createEvaluation", err, {
-          component: "evaluations.createEvaluation",
-          tag: "evaluation",
-          metadata: { student_id: input.student_id, teacher_id: input.teacher_id },
-        });
-      }
-    }
+    await createEvaluationRecord(supabase, {
+      studentId: input.student_id,
+      teacherId: input.teacher_id,
+      evaluationType: input.evaluation_type,
+      evaluationDate: input.evaluation_date,
+      scores: {
+        hifz: input.hifz_score,
+        tajweed: input.tajweed_score,
+        fluency: input.fluency_score,
+        attendance: input.attendance_score,
+        overall: input.overall_score,
+      },
+      text: {
+        strengths: input.strengths,
+        areasForImprovement: input.areas_for_improvement,
+        nextGoals: input.next_goals,
+        teacherComments: input.teacher_comments,
+      },
+      actor: { id: actorId as string, role: "admin" },
+    });
 
     revalidatePath("/admin/evaluations");
     revalidatePath("/teacher/evaluations");
-
-    await emitEvent("evaluation.created", "evaluation", input.student_id, {
-      student_id: input.student_id,
-      teacher_id: input.teacher_id,
-      evaluation_type: input.evaluation_type,
-    }).catch((err) => logError("emit evaluation.created failed", err, {
-      tag: "automation",
-      event: "evaluation.created",
-    }));
 
     return { message: "تم إنشاء التقييم بنجاح" };
   },
@@ -202,64 +174,34 @@ const createTeacherEvaluationBase = loudAction<z.infer<typeof createTeacherEvalu
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
-      .eq("id", actorId!)
+      .eq("id", actorId as string)
       .single<{ role: string }>();
 
-    if (profile?.role === "teacher") {
-      const { data: relation } = await supabase
-        .from("bookings")
-        .select("id")
-        .eq("teacher_id", actorId!)
-        .eq("student_id", input.studentId)
-        .limit(1)
-        .maybeSingle();
-      if (!relation) throw new UserError("لا يمكنك تقييم طالب لم تُدرّسه");
-    }
+    const role = profile?.role === "teacher" ? ("teacher" as const) : ("admin" as const);
 
-    const { error } = await supabase.from("session_evaluations").insert({
-      student_id: input.studentId,
-      teacher_id: actorId!,
-      evaluation_type: input.evaluationType as TableInsert<"session_evaluations">["evaluation_type"],
-      evaluation_date: input.evaluationDate,
-      hifz_score: input.scores.hifz ?? null,
-      tajweed_score: input.scores.tajweed ?? null,
-      fluency_score: input.scores.fluency ?? null,
-      attendance_score: input.scores.attendance ?? null,
-      overall_score: input.scores.overall,
-      strengths: input.text.strengths ?? null,
-      areas_for_improvement: input.text.areas_for_improvement ?? null,
-      next_goals: input.text.next_goals ?? null,
-      teacher_comments: input.text.teacher_comments ?? null,
-    } satisfies TableInsert<"session_evaluations">);
-
-    if (error) throw error;
-
-    try {
-      await notify({
-        userId: input.studentId,
-        type: "system",
-        title: "تقييم جديد من معلمك",
-        body: "أضاف معلمك تقييماً جديداً — يمكنك الاطلاع عليه من صفحة التقييمات",
-      });
-    } catch (err) {
-      logError("notify failed during createTeacherEvaluation", err, {
-        component: "evaluations.createTeacherEvaluation",
-        tag: "evaluation",
-        metadata: { studentId: input.studentId, teacherId: actorId },
-      });
-    }
+    await createEvaluationRecord(supabase, {
+      studentId: input.studentId,
+      teacherId: actorId as string,
+      evaluationType: input.evaluationType,
+      evaluationDate: input.evaluationDate,
+      scores: {
+        hifz: input.scores.hifz ?? null,
+        tajweed: input.scores.tajweed ?? null,
+        fluency: input.scores.fluency ?? null,
+        attendance: input.scores.attendance ?? null,
+        overall: input.scores.overall,
+      },
+      text: {
+        strengths: input.text.strengths ?? null,
+        areasForImprovement: input.text.areas_for_improvement ?? null,
+        nextGoals: input.text.next_goals ?? null,
+        teacherComments: input.text.teacher_comments ?? null,
+      },
+      actor: { id: actorId as string, role },
+    });
 
     revalidatePath("/teacher/evaluations");
     revalidatePath("/teacher/students");
-
-    await emitEvent("evaluation.created", "evaluation", input.studentId, {
-      student_id: input.studentId,
-      teacher_id: actorId,
-      evaluation_type: input.evaluationType,
-    }).catch((err) => logError("emit evaluation.created failed", err, {
-      tag: "automation",
-      event: "evaluation.created",
-    }));
 
     return { message: "تم إنشاء التقييم" };
   },
