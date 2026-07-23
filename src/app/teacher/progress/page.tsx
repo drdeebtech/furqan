@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { getTeacherRosterProgress } from "@/lib/teacher-queries";
+import { getTeacherRosterProgress } from "@/lib/views/teacher-roster-progress";
 import { RosterHeatmap } from "./roster-heatmap";
 
 export const metadata: Metadata = { title: "تقدم الطلاب" };
@@ -18,7 +18,7 @@ export default async function TeacherProgressPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const rows = await getTeacherRosterProgress(user.id);
+  const rows = await getTeacherRosterProgress(supabase, user.id);
 
   return (
     <main dir={dir} className="mx-auto max-w-5xl px-4 py-8 sm:px-6">

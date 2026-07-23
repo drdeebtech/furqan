@@ -13,7 +13,7 @@ import {
 import Image from "next/image";
 import { useLang } from "@/lib/i18n/context";
 import { surahName } from "@/lib/quran/surahs";
-import type { TeacherRecitationRosterRow } from "@/lib/teacher-queries";
+import type { TeacherRecitationRosterRow } from "@/lib/views/teacher-recitations";
 import { requestFreshRecitationAction } from "./actions";
 
 /** Uppercase the first character of a name for the avatar fallback.

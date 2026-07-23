@@ -19,7 +19,7 @@ import { WidgetCard } from "@/components/shared/widget-card";
 import type {
   TeacherCalendarEvent,
   TeacherWeeklyAvailabilityRow,
-} from "@/lib/teacher-queries";
+} from "@/lib/views/teacher-calendar";
 
 interface Props {
   monthIso: string;
