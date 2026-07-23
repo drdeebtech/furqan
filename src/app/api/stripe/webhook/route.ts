@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import StripeSdk from "stripe";
-import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import {
@@ -14,6 +13,7 @@ import {
   handleChargeRefunded,
   handleChargeDisputed,
   markEvent,
+  ingestBillingEvent,
   type EventContext,
 } from "@/lib/domains/billing/webhook-handlers";
 import {
@@ -74,43 +74,30 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // ── Gate 2: idempotency ledger insert ─────────────────────────────────────
+  // ── Gate 2: idempotency ledger insert (ADR-0005: shared Billing seam) ────
   // UNIQUE(stripe_event_id): a duplicate delivery is already-processed → 200 no-op.
-  const { data: eventRow, error: insErr } = await admin
-    .from("billing_events")
-    .insert({
-      stripe_event_id: event.id,
-      event_type: event.type,
-      stripe_event_created: new Date(event.created * 1000).toISOString(),
-      status: "received",
-      payload: event as unknown as Json,
-    })
-    .select("id")
-    .maybeSingle();
-
-  if (insErr) {
-    if (insErr.code === "23505") {
-      // Check terminal status before treating as a no-op (idempotency gap fix).
-      // A prior failed delivery writes a non-terminal row; a retry must re-attempt.
-      const { data: dupRow } = await admin
-        .from("billing_events")
-        .select("id, status")
-        .eq("stripe_event_id", event.id)
-        .maybeSingle<{ id: string; status: string }>();
-      if (!dupRow || dupRow.status === "processed" || dupRow.status === "ignored") {
-        return NextResponse.json({ received: true, duplicate: true });
-      }
-      const retryCtx: EventContext = { admin, stripe, event, billingEventId: dupRow.id };
-      return dispatch(retryCtx);
-    }
+  let ingest: Awaited<ReturnType<typeof ingestBillingEvent>>;
+  try {
+    ingest = await ingestBillingEvent(admin, {
+      provider: "stripe",
+      eventId: event.id,
+      eventType: event.type,
+      createdMs: event.created * 1000,
+      payload: event,
+    });
+  } catch (insErr) {
     logError("stripe-webhook: billing_events insert failed", insErr, {
       tag: "stripe-webhook", event_id: event.id, event_type: event.type,
     });
     return NextResponse.json({ error: "Ledger write failed" }, { status: 500 });
   }
 
+  if (ingest.outcome === "duplicate") {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   // ── Dispatch ──────────────────────────────────────────────────────────────
-  const ctx: EventContext = { admin, stripe, event, billingEventId: eventRow?.id ?? null };
+  const ctx: EventContext = { admin, stripe, event, billingEventId: ingest.billingEventId };
   return dispatch(ctx);
 }
 

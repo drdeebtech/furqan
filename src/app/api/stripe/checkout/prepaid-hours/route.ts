@@ -6,12 +6,11 @@ import { requireRole } from "@/lib/auth/require-admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
-import { getSetting, isFeatureEnabled } from "@/lib/settings";
+import { isFeatureEnabled } from "@/lib/settings";
 import {
-  PREPAID_DEFAULT_RATE_USD as DEFAULT_RATE_USD,
-  PREPAID_DEFAULT_CUSTOM_MIN as DEFAULT_CUSTOM_MIN,
-  PREPAID_DEFAULT_CUSTOM_MAX as DEFAULT_CUSTOM_MAX,
-} from "@/lib/domains/billing/prepaid-defaults";
+  resolvePrepaidQuote,
+  PrepaidHoursOutOfRangeError,
+} from "@/lib/domains/billing/prepaid-quote";
 import {
   PAYMENTS_UNAVAILABLE_MESSAGE,
   PAYMENTS_UNAVAILABLE_STATUS,
@@ -51,46 +50,11 @@ const PrepaidCheckoutSchema = z
 
 type PrepaidCheckout = z.infer<typeof PrepaidCheckoutSchema>;
 
-// ── Setting readers ──────────────────────────────────────────────────────────
-// All wallet money knobs are DATA (platform_settings, seeded in Phase 1), never
-// hardcoded (NFR-001). Missing/blank/non-finite → seeded default.
-
-// Defaults are imported from @/lib/domains/billing/prepaid-defaults. This is
-// the CHARGE path — amountCents = hours × rateUsd × 100 — so a stale local copy
-// bills the wrong amount.
-
-async function readRateUsd(): Promise<number> {
-  const raw = await getSetting("prepaid_hours_rate_usd");
-  if (raw === null || raw === undefined || raw.trim() === "") return DEFAULT_RATE_USD;
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0) return DEFAULT_RATE_USD;
-  // Cents-safe rounding: the rate is a flat USD value; round to 2dp so
-  // amount_cents = hours × rate × 100 is an integer.
-  return Math.round(n * 100) / 100;
-}
-
-async function readCustomBounds(): Promise<{ min: number; max: number }> {
-  const readMin = await getSetting("prepaid_hours_custom_min");
-  const readMax = await getSetting("prepaid_hours_custom_max");
-  const min = (() => {
-    if (readMin === null || readMin === undefined || readMin.trim() === "") return DEFAULT_CUSTOM_MIN;
-    const n = Number(readMin);
-    if (!Number.isFinite(n) || n < 1) return DEFAULT_CUSTOM_MIN;
-    return Math.floor(n);
-  })();
-  const max = (() => {
-    if (readMax === null || readMax === undefined || readMax.trim() === "") return DEFAULT_CUSTOM_MAX;
-    const n = Number(readMax);
-    if (!Number.isFinite(n) || n < min) return DEFAULT_CUSTOM_MAX;
-    return Math.floor(n);
-  })();
-  // Admin can set min > 100 while max is missing/invalid → the IIFE above
-  // would yield max=DEFAULT_CUSTOM_MAX=100 < min, rejecting every request
-  // ("between 200 and 100"). Reset both to defaults if the final range is
-  // inverted, so checkout never hard-fails on a misconfigured bound.
-  if (max < min) return { min: DEFAULT_CUSTOM_MIN, max: DEFAULT_CUSTOM_MAX };
-  return { min, max };
-}
+// The rate/bounds parsing (defensive parse + inverted-bounds RESET) and the
+// amountCents computation live in resolvePrepaidQuote
+// (@/lib/domains/billing/prepaid-quote), shared with the PayPal prepaid
+// route. This is the CHARGE path — a stale local copy bills the wrong
+// amount.
 
 /**
  * POST /api/stripe/checkout/prepaid-hours
@@ -151,22 +115,20 @@ export async function POST(request: Request) {
     );
   }
 
-  // ── Rate + bounds from settings (server-only; FR-002) ─────────────────────
-  const rateUsd = await readRateUsd();
-  const { min, max } = await readCustomBounds();
-
-  if (body.hours < min || body.hours > max) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Hours must be between ${min} and ${max}`,
-      },
-      { status: 422 },
-    );
+  // ── Rate + bounds + amount (server-only; FR-002) ──────────────────────────
+  let rateUsd: number;
+  let amountCents: number;
+  try {
+    ({ rateUsd, amountCents } = await resolvePrepaidQuote(body.hours));
+  } catch (e) {
+    if (e instanceof PrepaidHoursOutOfRangeError) {
+      return NextResponse.json(
+        { success: false, error: e.message },
+        { status: 422 },
+      );
+    }
+    throw e;
   }
-
-  // ── Server-side amount computation (FR-002: never trust client amount) ────
-  const amountCents = Math.round(body.hours * rateUsd * 100);
 
   // ── Stripe configuration gates ─────────────────────────────────────────────
   if (!isStripeConfigured()) {

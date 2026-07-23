@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { loadOrFail, countOrFail, helperOrFail } from "@/lib/supabase/load-or-fail";
+import { unreadMessagesFilter } from "@/lib/views/_shared/unread-messages";
 import type { ServerClient } from "@/lib/supabase/types";
 import type { SessionType } from "@/types/database";
 import { awardAchievement } from "@/lib/domains/achievements/award";
@@ -399,8 +400,7 @@ export async function studentDashboardView(
       .maybeSingle<{ plan_id: string; status: string; current_period_end: string | null; cancel_at_period_end: boolean }>(),
     // S2 — unread messages; skip the query when the student has no conversations.
     convIds.length > 0
-      ? supabase.from("messages").select("id", { count: "exact", head: true })
-          .in("conversation_id", convIds).neq("sender_id", studentId).eq("is_read", false)
+      ? unreadMessagesFilter(supabase, convIds, studentId)
       : Promise.resolve({ count: 0, error: null }),
   ]);
 

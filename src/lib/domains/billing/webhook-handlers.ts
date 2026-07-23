@@ -18,7 +18,7 @@ import { z } from "zod";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
-import { dispatchEffects } from "@/lib/automation/effects";
+import { materializeSingleSessionBooking } from "@/lib/domains/single-sessions/materialize";
 import {
   applyChargeClawbacks,
   disputeChargeId,
@@ -32,6 +32,7 @@ import {
   type StripeSubscriptionSnapshot,
 } from "@/lib/domains/billing/subscriptions";
 import { grantCycle, buildCycleKey } from "@/lib/domains/billing/orchestrate";
+import { assertPrepaidGrantValid } from "@/lib/domains/billing/prepaid-guard";
 import { BillingEvents } from "@/lib/domains/billing/events";
 import {
   applyImmediateUpgradeGrant,
@@ -69,9 +70,10 @@ export class WebhookTransientError extends Error {
 }
 
 export async function markEvent(
-  ctx: EventContext,
+  ctx: Pick<EventContext, "admin" | "billingEventId">,
   status: "processed" | "ignored" | "failed",
   errorDetail?: string,
+  logTag = "stripe-webhook",
 ): Promise<void> {
   if (!ctx.billingEventId) return;
   const { error } = await ctx.admin
@@ -79,10 +81,97 @@ export async function markEvent(
     .update({ status, ...(errorDetail ? { error_detail: errorDetail.slice(0, 500) } : {}) })
     .eq("id", ctx.billingEventId);
   if (error) {
-    logError("stripe-webhook: markEvent failed", error, {
-      tag: "stripe-webhook", billing_event_id: ctx.billingEventId, status,
+    logError(`${logTag}: markEvent failed`, error, {
+      tag: logTag, billing_event_id: ctx.billingEventId, status,
     });
   }
+}
+
+// ── ADR-0005: billing_events idempotency ledger (shared by all 3 provider
+// webhook routes — stripe/webhook, stripe/connect-webhook, paypal/webhook) ────
+
+/** Provider that emitted the event; matches the `billing_events.provider` CHECK. */
+export type BillingEventProvider = "stripe" | "paypal";
+
+export interface IngestBillingEventInput {
+  provider: BillingEventProvider;
+  /** Provider's event id — stored in the shared `stripe_event_id` UNIQUE column
+   *  (Stripe and PayPal event ids never collide; see migration 20260719000100). */
+  eventId: string;
+  eventType: string;
+  /** Event creation time in epoch ms. Stripe: `event.created * 1000`. PayPal:
+   *  `Date.parse(event.create_time)` or `Date.now()` when absent — the route
+   *  owns that translation; this function only ever sees a number. */
+  createdMs: number;
+  payload: unknown;
+}
+
+export type IngestBillingEventOutcome = "new" | "duplicate" | "redispatch";
+
+export interface IngestBillingEventResult {
+  outcome: IngestBillingEventOutcome;
+  billingEventId: string | null;
+}
+
+/** billing_events statuses that mean "already fully handled" — a duplicate
+ *  delivery of one of these is a no-op. Anything else (received/failed) is a
+ *  prior incomplete delivery and must be re-dispatched, not dropped. */
+const TERMINAL_BILLING_EVENT_STATUSES = new Set(["processed", "ignored"]);
+
+/**
+ * Insert-or-detect-duplicate against the `billing_events` idempotency ledger.
+ * This is ONLY the ledger write + dedup check — routing the event to its
+ * handler (dispatch) stays provider-specific and lives in each route.
+ *
+ * - insert succeeds → outcome 'new', billingEventId = the new row's id.
+ * - insert 23505 (duplicate) + prior row is terminal (processed/ignored) →
+ *   outcome 'duplicate' — the route returns 200 with no further dispatch.
+ * - insert 23505 + prior row is NOT terminal (received/failed — an earlier
+ *   delivery never finished) → outcome 'redispatch' — the route re-dispatches
+ *   in place using the existing row's id.
+ * - any other insert error → THROWN (the route maps this to its own 500
+ *   "Ledger write failed" response and log line).
+ */
+export async function ingestBillingEvent(
+  admin: ReturnType<typeof createAdminClient>,
+  input: IngestBillingEventInput,
+): Promise<IngestBillingEventResult> {
+  const { provider, eventId, eventType, createdMs, payload } = input;
+
+  const { data: insertedRow, error: insErr } = await admin
+    .from("billing_events")
+    .insert({
+      stripe_event_id: eventId,
+      event_type: eventType,
+      stripe_event_created: new Date(createdMs).toISOString(),
+      status: "received",
+      payload: payload as Json,
+      provider,
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (!insErr) {
+    return { outcome: "new", billingEventId: insertedRow?.id ?? null };
+  }
+
+  if (insErr.code !== "23505") {
+    throw insErr;
+  }
+
+  // Duplicate delivery — check the prior row's terminal status before
+  // treating this as a no-op (idempotency gap fix): a prior failed/received
+  // delivery never finished and must be re-attempted, not silently dropped.
+  const { data: dupRow } = await admin
+    .from("billing_events")
+    .select("id, status")
+    .eq("stripe_event_id", eventId)
+    .maybeSingle<{ id: string; status: string }>();
+
+  if (!dupRow || TERMINAL_BILLING_EVENT_STATUSES.has(dupRow.status)) {
+    return { outcome: "duplicate", billingEventId: dupRow?.id ?? null };
+  }
+  return { outcome: "redispatch", billingEventId: dupRow.id };
 }
 
 /** Extract the subscription id from a dahlia-era invoice. */
@@ -875,56 +964,33 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
     return;
   }
 
-  // H2 amount reconciliation (fail-closed on tampering). pi.amount_received is
-  // in cents; the expected total is hours × per-hour rate × 100. A 1-cent
-  // mismatch is rejected — the checkout route rounds cleanly so any drift is a
-  // real discrepancy, not a rounding artifact.
-  const expectedAmountCents = Math.round(hours * rateUsd * 100);
+  // H2 tamper guard + ownership check — shared with the PayPal rail via
+  // assertPrepaidGrantValid (same fail-closed reconciliation order: amount
+  // BEFORE ownership, both BEFORE any grant RPC). pi.amount_received is in
+  // cents; the checkout route rounds cleanly so any drift is a real
+  // discrepancy, not a rounding artifact.
   const receivedCents = pi.amount_received ?? 0;
-  if (receivedCents !== expectedAmountCents) {
-    logError(
-      "stripe-webhook: prepaid_hours amount mismatch (tamper/price-change)",
-      new Error("amount-mismatch"),
-      {
-        tag: "stripe-webhook",
-        event_id: ctx.event.id,
-        pi_id: pi.id,
-        expected_cents: expectedAmountCents,
-        received_cents: receivedCents,
-      },
-    );
-    await markEvent(
-      ctx,
-      "failed",
-      `amount mismatch: expected ${expectedAmountCents}, received ${receivedCents}`,
-    );
-    return;
-  }
-
-  // H2 ownership: the student_id stamped at checkout must resolve to a real
-  // profile. The metadata was set by OUR checkout route and signature-verified
-  // by Stripe, so a bogus id here means either a deleted account or a
-  // misconfiguration — fail-closed either way. We do NOT auto-create accounts.
-  const { data: profile, error: profileErr } = await ctx.admin
-    .from("profiles")
-    .select("id, role")
-    .eq("id", studentId)
-    .maybeSingle<{ id: string; role: string | null }>();
-  if (profileErr) {
-    logError("stripe-webhook: prepaid_hours profile lookup failed", profileErr, {
-      tag: "stripe-webhook",
-      pi_id: pi.id,
-      student_id: studentId,
-    });
-    await markEvent(ctx, "failed", "profile lookup failed");
-    return;
-  }
-  if (!profile) {
-    await markEvent(ctx, "failed", `no profile for student_id ${studentId} — cannot grant`);
-    return;
-  }
-  if (profile.role !== "student") {
-    await markEvent(ctx, "failed", `student_id ${studentId} role is ${profile.role}, not student`);
+  const guard = await assertPrepaidGrantValid(ctx.admin, {
+    studentId,
+    hours,
+    rate: rateUsd,
+    chargedCents: receivedCents,
+  });
+  if (!guard.ok) {
+    if (guard.reason.startsWith("amount mismatch")) {
+      logError(
+        "stripe-webhook: prepaid_hours amount mismatch (tamper/price-change)",
+        new Error("amount-mismatch"),
+        {
+          tag: "stripe-webhook",
+          event_id: ctx.event.id,
+          pi_id: pi.id,
+          expected_cents: Math.round(hours * rateUsd * 100),
+          received_cents: receivedCents,
+        },
+      );
+    }
+    await markEvent(ctx, "failed", guard.reason);
     return;
   }
 
@@ -1418,79 +1484,36 @@ async function materializeBooking(
     scheduledAt: string | null;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const admin = ctx.admin;
+  // Delegates to the shared materialize seam (Task 8) — SAME RPC choice, arg
+  // assembly, target_scope parse, and (for `instant`) the booking.created
+  // emit this webhook path always had. Byte-identical paid-path behavior:
+  // logging below reproduces the pre-extraction conditions exactly (no log
+  // on an invalid target_scope; the same two log messages/tags otherwise).
+  const result = await materializeSingleSessionBooking(ctx.admin, {
+    studentId: args.studentId,
+    teacherId: args.teacherId,
+    bookingType: args.bookingType,
+    paymentId: args.paymentId,
+    specialty: args.specialty,
+    purpose: args.purpose,
+    targetScopeRaw: args.targetScopeRaw,
+    scheduledAt: args.scheduledAt,
+  });
 
-  if (args.bookingType === "instant") {
-    // Instant path: adapted start_instant_session_booking with p_payment_id.
-    const effectiveScheduledAt = args.scheduledAt ?? new Date().toISOString();
-    const { data: bookingId, error: rpcErr } = await admin.rpc(
-      "start_instant_session_booking",
-      {
-        p_student_id: args.studentId,
-        p_teacher_id: args.teacherId,
-        p_session_type: "hifz" as const,
-        p_duration_min: 30,
-        p_rate_snapshot: 0,
-        p_amount_usd: 0,
-        p_scheduled_at: effectiveScheduledAt,
-        p_payment_id: args.paymentId,
-      },
-    );
-    if (rpcErr || !bookingId) {
-      logError("single-session webhook: instant creator failed", rpcErr ?? new Error("no id"), {
-        tag: "stripe-webhook", pi_id_hint: args.paymentId, booking_type: "instant",
-      });
-      return { ok: false, error: rpcErr?.message ?? "instant creator returned no id" };
+  if (!result.ok) {
+    if (result.code !== "invalid_target_scope") {
+      if (args.bookingType === "instant") {
+        logError("single-session webhook: instant creator failed", result.cause, {
+          tag: "stripe-webhook", pi_id_hint: args.paymentId, booking_type: "instant",
+        });
+      } else {
+        logError("single-session webhook: creator failed", result.cause, {
+          tag: "stripe-webhook", payment_id: args.paymentId, booking_type: args.bookingType,
+        });
+      }
     }
-    const dateLabel = new Date(effectiveScheduledAt).toLocaleDateString("ar");
-    await Promise.allSettled([
-      dispatchEffects("booking.created", {
-        teacherId: args.teacherId,
-        entityId: bookingId as string,
-        dateLabel,
-      }),
-      emitEvent("booking.created", "booking", bookingId as string, {
-        student_id: args.studentId,
-        teacher_id: args.teacherId,
-        session_type: "hifz",
-        scheduled_at: effectiveScheduledAt,
-      }).catch((err) =>
-        logError("single-session webhook: emit booking.created failed", err, {
-          tag: "stripe-webhook", booking_type: "instant",
-        }),
-      ),
-    ]);
-    return { ok: true };
-  }
-
-  // assessment / specialized: atomic create_single_session_booking.
-  let targetScopeJson: unknown = null;
-  if (args.targetScopeRaw) {
-    try {
-      targetScopeJson = JSON.parse(args.targetScopeRaw);
-    } catch {
-      return { ok: false, error: "target_scope metadata is not valid JSON" };
-    }
-  }
-
-  const { data: bookingId, error: rpcErr } = await admin.rpc(
-    "create_single_session_booking",
-    {
-      p_student_id: args.studentId,
-      p_teacher_id: args.teacherId,
-      p_booking_product_type: args.bookingType,
-      p_payment_id: args.paymentId,
-      p_specialty: args.specialty ?? undefined,
-      p_purpose: args.purpose ?? undefined,
-      p_target_scope: targetScopeJson as never,
-    },
-  );
-  if (rpcErr || !bookingId) {
-    logError("single-session webhook: creator failed", rpcErr ?? new Error("no id"), {
-      tag: "stripe-webhook", payment_id: args.paymentId, booking_type: args.bookingType,
-    });
     // Recovery path (FR-013): leave the payments row with booking_id NULL.
-    return { ok: false, error: rpcErr?.message ?? "creator returned no id" };
+    return { ok: false, error: result.error };
   }
   return { ok: true };
 }

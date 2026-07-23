@@ -15,11 +15,17 @@ async function requireTeacherActor(): Promise<{ actorId: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new UserError("غير مصرح");
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single<{ role: string }>();
+  if (profileErr) {
+    // DB read failure (network/service issue) — not an auth error. Throw a
+    // plain Error so loudAction logs it to Sentry rather than treating it as
+    // a user-visible authorization denial.
+    throw profileErr;
+  }
   if (!profile || !["teacher", "admin"].includes(profile.role)) {
     throw new UserError("ليس لديك صلاحية");
   }

@@ -45,11 +45,13 @@ describe("prepaid-hours defaults", () => {
     expect(PREPAID_DEFAULT_CUSTOM_MAX).toBeGreaterThan(PREPAID_DEFAULT_CUSTOM_MIN);
   });
 
-  it("is the single definition — no consumer keeps its own copy", () => {
+  it("is the single definition — no consumer keeps its own copy of the defaults", () => {
+    // The two checkout routes no longer import prepaid-defaults directly —
+    // they go through resolvePrepaidQuote (see the next test). Only that
+    // module and the anon-safe pricing page read the raw constants.
     const consumers = [
       "src/app/(public)/pricing/page.tsx",
-      "src/app/api/stripe/checkout/prepaid-hours/route.ts",
-      "src/app/api/paypal/checkout/prepaid-hours/route.ts",
+      "src/lib/domains/billing/prepaid-quote.ts",
     ];
 
     for (const rel of consumers) {
@@ -59,6 +61,26 @@ describe("prepaid-hours defaults", () => {
       );
       expect(src, `${rel} does not import the shared default`).toContain(
         "prepaid-defaults",
+      );
+    }
+  });
+
+  it("both prepaid checkout routes resolve the quote through resolvePrepaidQuote, not their own copy", () => {
+    const routes = [
+      "src/app/api/stripe/checkout/prepaid-hours/route.ts",
+      "src/app/api/paypal/checkout/prepaid-hours/route.ts",
+    ];
+
+    for (const rel of routes) {
+      const src = readFileSync(join(REPO_ROOT, rel), "utf8");
+      expect(src, `${rel} still defines its own readRateUsd`).not.toMatch(
+        /function readRateUsd/,
+      );
+      expect(src, `${rel} still defines its own readCustomBounds`).not.toMatch(
+        /function readCustomBounds/,
+      );
+      expect(src, `${rel} does not import resolvePrepaidQuote`).toContain(
+        "resolvePrepaidQuote",
       );
     }
   });
