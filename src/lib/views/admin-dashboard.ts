@@ -1,8 +1,10 @@
 // Admin dashboard reads — migrated out of the legacy dashboard-queries.ts god
-// module (#613). These use createClient() internally (not an injected seam),
-// matching their original shape.
+// module (#613). Each export takes an injected `supabase: ServerClient` as
+// its first parameter — the test seam — instead of constructing its own
+// client. The caller (src/app/admin/dashboard/page.tsx) builds one client
+// per request and passes it to every call.
 
-import { createClient } from "@/lib/supabase/server";
+import type { ServerClient } from "@/lib/supabase/types";
 import type { Lang } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/i18n/format-date";
 import { logError } from "@/lib/logger";
@@ -26,8 +28,9 @@ export interface MonthlyRevenueTrend {
 }
 
 
-export async function getAdminMonthlyRevenueTrend(): Promise<MonthlyRevenueTrend> {
-  const supabase = await createClient();
+export async function getAdminMonthlyRevenueTrend(
+  supabase: ServerClient,
+): Promise<MonthlyRevenueTrend> {
   const now = new Date();
   const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const firstOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -71,9 +74,9 @@ export async function getAdminMonthlyRevenueTrend(): Promise<MonthlyRevenueTrend
 
 
 export async function getAdminDailyRevenue(
-  lang: "ar" | "en" = "en"
+  supabase: ServerClient,
+  lang: "ar" | "en" = "en",
 ): Promise<ChartDataPoint[]> {
-  const supabase = await createClient();
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -116,9 +119,9 @@ export async function getAdminDailyRevenue(
 }
 
 
-export async function getPlatformLiveSessions(): Promise<LiveSessionItem[]> {
-  const supabase = await createClient();
-
+export async function getPlatformLiveSessions(
+  supabase: ServerClient,
+): Promise<LiveSessionItem[]> {
   // Single round-trip via FK chain: sessions.booking_id → bookings →
   // {student, teacher} profiles. Replaces the previous 3-stage cascade.
   type Row = {
@@ -187,9 +190,9 @@ const BOOKING_STATUS_COLORS: Record<string, { ar: string; en: string; color: str
 
 
 export async function getAdminBookingStatusBreakdown(
+  supabase: ServerClient,
   lang: Lang = "ar",
 ): Promise<{ label: string; value: number; color: string }[]> {
-  const supabase = await createClient();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -219,11 +222,10 @@ export async function getAdminBookingStatusBreakdown(
 
 
 export async function getAdminRecentBookings(
+  supabase: ServerClient,
   limit = 6,
   lang: Lang = "ar",
 ): Promise<{ id: string; [key: string]: unknown }[]> {
-  const supabase = await createClient();
-
   // Single round-trip via FK shorthand. Only student name is shown ('assignee').
   type Row = {
     id: string;
