@@ -47,6 +47,11 @@ describe("getAdminMonthlyRevenueTrend", () => {
     const result = await getAdminMonthlyRevenueTrend(chain as never);
 
     expect(result).toEqual({ currentMonthUsd: 150, previousMonthUsd: 100, changePct: 50 });
+
+    expect(chain.from).toHaveBeenCalledWith("bookings");
+    expect(chain.eq).toHaveBeenCalledWith("status", "completed");
+    expect(chain.gte).toHaveBeenCalledTimes(2);
+    expect(chain.lt).toHaveBeenCalledWith("created_at", expect.any(String));
   });
 });
 
@@ -73,6 +78,10 @@ describe("getAdminDailyRevenue", () => {
       { day: "Sat", value: 0, isActive: false },
       { day: "Sun", value: 0, isActive: false },
     ]);
+
+    expect(chain.from).toHaveBeenCalledWith("bookings");
+    expect(chain.eq).toHaveBeenCalledWith("status", "completed");
+    expect(chain.gte).toHaveBeenCalledWith("created_at", expect.any(String));
   });
 });
 
@@ -110,6 +119,11 @@ describe("getPlatformLiveSessions", () => {
         progressPercent: undefined,
       },
     ]);
+
+    expect(chain.from).toHaveBeenCalledWith("sessions");
+    expect(chain.not).toHaveBeenCalledWith("started_at", "is", null);
+    expect(chain.is).toHaveBeenCalledWith("ended_at", null);
+    expect(chain.gte).toHaveBeenCalledWith("started_at", expect.any(String));
   });
 });
 
@@ -131,6 +145,9 @@ describe("getAdminBookingStatusBreakdown", () => {
       { label: "Completed", value: 3, color: "#22C55E" },
       { label: "Pending", value: 1, color: "#F59E0B" },
     ]);
+
+    expect(chain.from).toHaveBeenCalledWith("bookings");
+    expect(chain.gte).toHaveBeenCalledWith("created_at", expect.any(String));
   });
 });
 
@@ -163,5 +180,9 @@ describe("getAdminRecentBookings", () => {
         view: "view",
       },
     ]);
+
+    expect(chain.from).toHaveBeenCalledWith("bookings");
+    expect(chain.order).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(chain.limit).toHaveBeenCalledWith(6);
   });
 });
