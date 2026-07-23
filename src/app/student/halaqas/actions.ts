@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
+import { callRpc } from "@/lib/supabase/rpc";
 
 const uuidSchema = z.string().uuid();
 
@@ -34,17 +35,12 @@ interface SessionRow {
 /**
  * Stage 5 student halaqa enrollment.
  *
- * Race-safe via two guards:
- *  1. session_participants UNIQUE(session_id, user_id) catches duplicate
- *     enrollment attempts.
- *  2. The enrollment-counter UPDATE has `current_enrollment < capacity`
- *     in its WHERE clause; if two students enroll simultaneously when
- *     only one seat remains, only one UPDATE succeeds (RETURNING empty
- *     for the loser).
- *
- * If the counter UPDATE loses the race, the participant row is rolled
- * back so the loser sees "halaqa is full" instead of being stuck in a
- * half-enrolled state.
+ * Race-safe via the enroll_participant() SQL kernel (Task 10 / ADR-0004):
+ * the participant INSERT and the capacity-guarded current_enrollment
+ * increment run in one atomic transaction. A duplicate enrollment
+ * (UNIQUE(session_id, user_id)) or a lost capacity race both abort the
+ * whole function server-side, so there is never a half-enrolled state
+ * for the app layer to compensate for.
  */
 export async function enrollInHalaqa(
   _prev: EnrollState,
@@ -93,52 +89,23 @@ export async function enrollInHalaqa(
     return { error: "الحلقة ممتلئة" };
   }
 
-  // Insert participant. UNIQUE(session_id, user_id) catches duplicates.
-  const { error: insErr } = await admin
-    .from("session_participants")
-    .insert({
-      session_id: sessionId,
-      user_id: user.id,
-      role: "student",
-      attendance_status: "registered",
-    } as TableInsert<"session_participants">);
-  if (insErr) {
-    if (insErr.code === "23505") return { error: "أنت مسجل في هذه الحلقة بالفعل" };
-    logError("enrollInHalaqa: participant insert failed", insErr, {
+  // Atomic enroll: INSERT session_participants + capacity-guarded increment
+  // of sessions.current_enrollment, one transaction (Task 10 / ADR-0004).
+  // A lost capacity race or a duplicate enrollment aborts the whole
+  // function server-side — no app-side compensating rollback needed.
+  const { error: enrollErr } = await callRpc(admin, "enroll_participant", {
+    p_session_id: sessionId,
+    p_user_id: user.id,
+  });
+
+  if (enrollErr) {
+    if (enrollErr.code === "23505") return { error: "أنت مسجل في هذه الحلقة بالفعل" };
+    if (enrollErr.code === "P0003") return { error: "الحلقة ممتلئة" };
+    logError("enrollInHalaqa: enroll_participant RPC failed", enrollErr, {
       tag: "halaqa.enroll",
       metadata: { session_id: sessionId, user_id: user.id },
     });
     return { error: "فشل التسجيل" };
-  }
-
-  // Race-safe capacity check via WHERE clause. RETURNING empty = lost
-  // the race against another student. Roll back the participant row.
-  const { data: updated, error: updErr } = await admin
-    .from("sessions")
-    .update({
-      current_enrollment: session.current_enrollment + 1,
-    })
-    .eq("id", sessionId)
-    .lt("current_enrollment", session.capacity)
-    .select("id")
-    .maybeSingle<{ id: string }>();
-
-  if (updErr || !updated) {
-    // Race lost OR update error — roll back the participant insert.
-    await admin
-      .from("session_participants")
-      .delete()
-      .eq("session_id", sessionId)
-      .eq("user_id", user.id);
-
-    if (updErr) {
-      logError("enrollInHalaqa: enrollment counter update failed", updErr, {
-        tag: "halaqa.enroll",
-        metadata: { session_id: sessionId },
-      });
-      return { error: "فشل تحديث العداد" };
-    }
-    return { error: "الحلقة ممتلئة" };
   }
 
   emitEvent("halaqa.enrolled", "session", sessionId, {
@@ -154,13 +121,10 @@ export async function enrollInHalaqa(
 }
 
 /**
- * Cancel halaqa enrollment. Removes the student's session_participants
- * row and decrements current_enrollment.
- *
- * Not a hot race-condition path (a single student can't cancel twice),
- * so the snapshot-read + write is acceptable. If counter drift happens
- * via concurrent admin mutations, that's a separate operational concern
- * and a future migration can add a SQL function to do this atomically.
+ * Cancel halaqa enrollment via the release_participant() SQL kernel
+ * (Task 10 / ADR-0004): the participant DELETE and the floor-at-0
+ * current_enrollment decrement run in one atomic transaction, so counter
+ * drift against concurrent admin mutations is no longer possible.
  */
 export async function cancelHalaqaEnrollment(
   _prev: EnrollState,
@@ -179,57 +143,23 @@ export async function cancelHalaqaEnrollment(
   // admin: halaqa enrollment flows update the shared sessions.current_enrollment counter (student isn't the booking owner) and session_participants DELETE is admin-only (issue #523)
   const admin = createAdminClient();
 
-  // Delete the participant row. RETURNING tells us whether the row
-  // existed before the delete.
-  const { data: deletedRows, error: delErr } = await admin
-    .from("session_participants")
-    .delete()
-    .eq("session_id", sessionId)
-    .eq("user_id", user.id)
-    .eq("role", "student")
-    .select("id");
+  // Atomic release: DELETE session_participants + floor-at-0 decrement of
+  // sessions.current_enrollment, one transaction (Task 10 / ADR-0004).
+  const { data: released, error: releaseErr } = await callRpc(admin, "release_participant", {
+    p_session_id: sessionId,
+    p_user_id: user.id,
+  });
 
-  if (delErr) {
-    logError("cancelHalaqaEnrollment: delete failed", delErr, {
+  if (releaseErr) {
+    logError("cancelHalaqaEnrollment: release_participant RPC failed", releaseErr, {
       tag: "halaqa.cancel",
       metadata: { session_id: sessionId, user_id: user.id },
     });
     return { error: "فشل الإلغاء" };
   }
 
-  if (!deletedRows || deletedRows.length === 0) {
+  if (!released) {
     return { error: "لست مسجلاً في هذه الحلقة" };
-  }
-
-  // Read snapshot, then UPDATE only if counter still matches (optimistic
-  // lock) and is > 0. Prevents underflow on concurrent admin mutations.
-  const { data: session } = await admin
-    .from("sessions")
-    .select("current_enrollment")
-    .eq("id", sessionId)
-    .maybeSingle<{ current_enrollment: number }>();
-
-  const snapshot = session?.current_enrollment ?? 0;
-  const { data: updatedDecrement, error: updErr } = await admin
-    .from("sessions")
-    .update({ current_enrollment: Math.max(0, snapshot - 1) })
-    .eq("id", sessionId)
-    .eq("current_enrollment", snapshot)
-    .gt("current_enrollment", 0)
-    .select("id")
-    .maybeSingle();
-
-  if (updErr || !updatedDecrement) {
-    // Soft-fail: counter mismatch is operationally fixable; we already
-    // removed the participant, which is the user-visible action.
-    logError(
-      "cancelHalaqaEnrollment: counter decrement failed or optimistic lock lost",
-      updErr ?? new Error("optimistic lock failed"),
-      {
-        tag: "halaqa.cancel",
-        metadata: { session_id: sessionId, snapshot },
-      },
-    );
   }
 
   emitEvent("halaqa.enrollment_cancelled", "session", sessionId, {
