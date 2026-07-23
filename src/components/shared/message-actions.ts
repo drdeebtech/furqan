@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
+import { unreadMessagesFilter } from "@/lib/views/_shared/unread-messages";
 
 type MessageRow = {
   id: string;
@@ -97,13 +98,7 @@ export async function getUnreadMessageCount() {
   if (!convos || convos.length === 0) return 0;
 
   const convIds = convos.map(c => c.id);
-  const { count } = await supabase
-    .from("messages")
-    .select("id", { count: "exact", head: true })
-    .in("conversation_id", convIds)
-    .neq("sender_id", user.id)
-    .eq("is_read", false)
-    .is("deleted_at", null);
+  const { count } = await unreadMessagesFilter(supabase, convIds, user.id);
 
   return count ?? 0;
 }
