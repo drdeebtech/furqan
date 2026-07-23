@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { markEvent, ingestBillingEvent } from "@/lib/domains/billing/webhook-handlers";
 import { logError, logInfo } from "@/lib/logger";
 import {
   isPayPalWebhookConfigured,
@@ -71,31 +71,6 @@ const RefundResourceSchema = z
   })
   .passthrough();
 
-
-type BillingEventStatus = "received" | "processed" | "ignored" | "failed";
-
-/** Update a billing_events row's status (best-effort, never throws). */
-async function markEvent(
-  admin: ReturnType<typeof createAdminClient>,
-  eventId: string,
-  status: BillingEventStatus,
-  errorDetail?: string,
-): Promise<void> {
-  const { error } = await admin
-    .from("billing_events")
-    .update({
-      status,
-      ...(errorDetail ? { error_detail: errorDetail } : {}),
-    })
-    .eq("stripe_event_id", eventId);
-  if (error) {
-    logError("paypal-webhook: markEvent failed", error, {
-      tag: "paypal-webhook",
-      event_id: eventId,
-      status,
-    });
-  }
-}
 
 export async function POST(request: Request) {
   // ── Gate 1: config ─────────────────────────────────────────────────────────
@@ -180,37 +155,21 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // ── Gate 3: idempotency ledger insert ──────────────────────────────────────
+  // ── Gate 3: idempotency ledger insert (ADR-0005: shared Billing seam) ──────
   // UNIQUE(stripe_event_id): a duplicate delivery is already-processed → 200
   // no-op. PayPal event ids are stored in the same column as Stripe event ids
   // (they never collide); provider='paypal' tags the row for admin filtering.
-  const createdIso = event.create_time ?? new Date().toISOString();
-  const { error: insErr } = await admin
-    .from("billing_events")
-    .insert({
-      stripe_event_id: event.id,
-      event_type: event.event_type,
-      stripe_event_created: createdIso,
-      status: "received",
-      payload: event as unknown as Json,
+  const createdMs = event.create_time ? new Date(event.create_time).getTime() : Date.now();
+  let ingest: Awaited<ReturnType<typeof ingestBillingEvent>>;
+  try {
+    ingest = await ingestBillingEvent(admin, {
       provider: "paypal",
+      eventId: event.id,
+      eventType: event.event_type,
+      createdMs,
+      payload: event,
     });
-
-  if (insErr) {
-    if (insErr.code === "23505") {
-      // Duplicate delivery. Check the prior row's terminal status — a prior
-      // failed/received delivery should be re-attempted (mirror Stripe route).
-      const { data: dupRow } = await admin
-        .from("billing_events")
-        .select("id, status")
-        .eq("stripe_event_id", event.id)
-        .maybeSingle<{ id: string; status: string }>();
-      if (!dupRow || dupRow.status === "processed" || dupRow.status === "ignored") {
-        return NextResponse.json({ received: true, duplicate: true });
-      }
-      // Non-terminal prior delivery — re-dispatch in place.
-      return dispatch(admin, event);
-    }
+  } catch (insErr) {
     logError("paypal-webhook: billing_events insert failed", insErr, {
       tag: "paypal-webhook",
       event_id: event.id,
@@ -219,7 +178,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Ledger write failed" }, { status: 500 });
   }
 
-  return dispatch(admin, event);
+  if (ingest.outcome === "duplicate") {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
+  return dispatch(admin, event, ingest.billingEventId);
 }
 
 /** PAYMENT.CAPTURE.COMPLETED → tamper-guarded, idempotent prepaid-hours grant.
@@ -234,6 +197,7 @@ export async function POST(request: Request) {
 async function handleCaptureCompleted(
   admin: ReturnType<typeof createAdminClient>,
   event: z.infer<typeof PaypalEventSchema>,
+  billingEventId: string | null,
 ): Promise<{ retryable: boolean }> {
   const resourceParsed = CaptureResourceSchema.safeParse(event.resource);
   if (!resourceParsed.success) {
@@ -242,7 +206,7 @@ async function handleCaptureCompleted(
       new Error("bad-resource"),
       { tag: "paypal-webhook", event_id: event.id, issues: resourceParsed.error.flatten() },
     );
-    await markEvent(admin, event.id, "failed", "capture resource malformed");
+    await markEvent({ admin, billingEventId }, "failed", "capture resource malformed", "paypal-webhook");
     return { retryable: false };
   }
   const capture = resourceParsed.data;
@@ -263,7 +227,7 @@ async function handleCaptureCompleted(
       capture_id: capture.id,
       lot_id: result.lotId,
     });
-    await markEvent(admin, event.id, "processed");
+    await markEvent({ admin, billingEventId }, "processed", undefined, "paypal-webhook");
     return { retryable: false };
   }
 
@@ -273,7 +237,7 @@ async function handleCaptureCompleted(
     capture_id: capture.id,
     reason: result.reason,
   });
-  await markEvent(admin, event.id, "failed", result.reason);
+  await markEvent({ admin, billingEventId }, "failed", result.reason, "paypal-webhook");
   // Retryable iff a retry could plausibly succeed — transient DB / lookup
   // failures only. Everything else is a permanent config/tamper/ownership
   // rejection that a redelivery will hit identically.
@@ -293,6 +257,7 @@ async function handleCaptureCompleted(
 async function handleExternalRefund(
   admin: ReturnType<typeof createAdminClient>,
   event: z.infer<typeof PaypalEventSchema>,
+  billingEventId: string | null,
 ): Promise<{ retryable: boolean }> {
   const refundParsed = RefundResourceSchema.safeParse(event.resource);
   const captureId = refundParsed.success
@@ -304,7 +269,7 @@ async function handleExternalRefund(
       new Error("no-capture-id"),
       { tag: "paypal-webhook", event_id: event.id, event_type: event.event_type },
     );
-    await markEvent(admin, event.id, "failed", "refund missing capture id");
+    await markEvent({ admin, billingEventId }, "failed", "refund missing capture id", "paypal-webhook");
     // Permanent — PayPal sent a refund event with no up-link; a redelivery
     // will look identical. Keep 2xx so PayPal stops retrying.
     return { retryable: false };
@@ -318,7 +283,7 @@ async function handleExternalRefund(
       event_id: event.id,
       capture_id: captureId,
     });
-    await markEvent(admin, event.id, "failed", reconErr.message);
+    await markEvent({ admin, billingEventId }, "failed", reconErr.message, "paypal-webhook");
     // Transient RPC failure — a retry may succeed. Surface 500 so PayPal
     // redelivers (billing_events dedup makes a retry safe).
     return { retryable: true };
@@ -328,7 +293,7 @@ async function handleExternalRefund(
     event_id: event.id,
     capture_id: captureId,
   });
-  await markEvent(admin, event.id, "processed");
+  await markEvent({ admin, billingEventId }, "processed", undefined, "paypal-webhook");
   return { retryable: false };
 }
 
@@ -344,11 +309,12 @@ async function handleExternalRefund(
 async function dispatch(
   admin: ReturnType<typeof createAdminClient>,
   event: z.infer<typeof PaypalEventSchema>,
+  billingEventId: string | null,
 ): Promise<NextResponse> {
   try {
     switch (event.event_type) {
       case "PAYMENT.CAPTURE.COMPLETED": {
-        const { retryable } = await handleCaptureCompleted(admin, event);
+        const { retryable } = await handleCaptureCompleted(admin, event, billingEventId);
         if (retryable) {
           return NextResponse.json(
             { error: "Grant failed (retryable)" },
@@ -360,7 +326,7 @@ async function dispatch(
 
       case "PAYMENT.CAPTURE.REFUNDED":
       case "PAYMENT.CAPTURE.REVERSED": {
-        const { retryable } = await handleExternalRefund(admin, event);
+        const { retryable } = await handleExternalRefund(admin, event, billingEventId);
         if (retryable) {
           return NextResponse.json(
             { error: "Refund reconcile failed (retryable)" },
@@ -377,12 +343,12 @@ async function dispatch(
           tag: "paypal-webhook",
           event_id: event.id,
         });
-        await markEvent(admin, event.id, "ignored", event.event_type);
+        await markEvent({ admin, billingEventId }, "ignored", event.event_type, "paypal-webhook");
         break;
       }
 
       default: {
-        await markEvent(admin, event.id, "ignored", event.event_type);
+        await markEvent({ admin, billingEventId }, "ignored", event.event_type, "paypal-webhook");
         break;
       }
     }
@@ -395,10 +361,10 @@ async function dispatch(
       event_type: event.event_type,
     });
     await markEvent(
-      admin,
-      event.id,
+      { admin, billingEventId },
       "failed",
       err instanceof Error ? err.message : "dispatch crashed",
+      "paypal-webhook",
     );
     return NextResponse.json({ error: "Dispatch failed" }, { status: 500 });
   }
