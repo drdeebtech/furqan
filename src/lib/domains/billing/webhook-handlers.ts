@@ -18,7 +18,7 @@ import { z } from "zod";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
-import { dispatchEffects } from "@/lib/automation/effects";
+import { materializeSingleSessionBooking } from "@/lib/domains/single-sessions/materialize";
 import {
   applyChargeClawbacks,
   disputeChargeId,
@@ -1506,79 +1506,36 @@ async function materializeBooking(
     scheduledAt: string | null;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const admin = ctx.admin;
+  // Delegates to the shared materialize seam (Task 8) — SAME RPC choice, arg
+  // assembly, target_scope parse, and (for `instant`) the booking.created
+  // emit this webhook path always had. Byte-identical paid-path behavior:
+  // logging below reproduces the pre-extraction conditions exactly (no log
+  // on an invalid target_scope; the same two log messages/tags otherwise).
+  const result = await materializeSingleSessionBooking(ctx.admin, {
+    studentId: args.studentId,
+    teacherId: args.teacherId,
+    bookingType: args.bookingType,
+    paymentId: args.paymentId,
+    specialty: args.specialty,
+    purpose: args.purpose,
+    targetScopeRaw: args.targetScopeRaw,
+    scheduledAt: args.scheduledAt,
+  });
 
-  if (args.bookingType === "instant") {
-    // Instant path: adapted start_instant_session_booking with p_payment_id.
-    const effectiveScheduledAt = args.scheduledAt ?? new Date().toISOString();
-    const { data: bookingId, error: rpcErr } = await admin.rpc(
-      "start_instant_session_booking",
-      {
-        p_student_id: args.studentId,
-        p_teacher_id: args.teacherId,
-        p_session_type: "hifz" as const,
-        p_duration_min: 30,
-        p_rate_snapshot: 0,
-        p_amount_usd: 0,
-        p_scheduled_at: effectiveScheduledAt,
-        p_payment_id: args.paymentId,
-      },
-    );
-    if (rpcErr || !bookingId) {
-      logError("single-session webhook: instant creator failed", rpcErr ?? new Error("no id"), {
-        tag: "stripe-webhook", pi_id_hint: args.paymentId, booking_type: "instant",
-      });
-      return { ok: false, error: rpcErr?.message ?? "instant creator returned no id" };
+  if (!result.ok) {
+    if (result.code !== "invalid_target_scope") {
+      if (args.bookingType === "instant") {
+        logError("single-session webhook: instant creator failed", result.cause, {
+          tag: "stripe-webhook", pi_id_hint: args.paymentId, booking_type: "instant",
+        });
+      } else {
+        logError("single-session webhook: creator failed", result.cause, {
+          tag: "stripe-webhook", payment_id: args.paymentId, booking_type: args.bookingType,
+        });
+      }
     }
-    const dateLabel = new Date(effectiveScheduledAt).toLocaleDateString("ar");
-    await Promise.allSettled([
-      dispatchEffects("booking.created", {
-        teacherId: args.teacherId,
-        entityId: bookingId as string,
-        dateLabel,
-      }),
-      emitEvent("booking.created", "booking", bookingId as string, {
-        student_id: args.studentId,
-        teacher_id: args.teacherId,
-        session_type: "hifz",
-        scheduled_at: effectiveScheduledAt,
-      }).catch((err) =>
-        logError("single-session webhook: emit booking.created failed", err, {
-          tag: "stripe-webhook", booking_type: "instant",
-        }),
-      ),
-    ]);
-    return { ok: true };
-  }
-
-  // assessment / specialized: atomic create_single_session_booking.
-  let targetScopeJson: unknown = null;
-  if (args.targetScopeRaw) {
-    try {
-      targetScopeJson = JSON.parse(args.targetScopeRaw);
-    } catch {
-      return { ok: false, error: "target_scope metadata is not valid JSON" };
-    }
-  }
-
-  const { data: bookingId, error: rpcErr } = await admin.rpc(
-    "create_single_session_booking",
-    {
-      p_student_id: args.studentId,
-      p_teacher_id: args.teacherId,
-      p_booking_product_type: args.bookingType,
-      p_payment_id: args.paymentId,
-      p_specialty: args.specialty ?? undefined,
-      p_purpose: args.purpose ?? undefined,
-      p_target_scope: targetScopeJson as never,
-    },
-  );
-  if (rpcErr || !bookingId) {
-    logError("single-session webhook: creator failed", rpcErr ?? new Error("no id"), {
-      tag: "stripe-webhook", payment_id: args.paymentId, booking_type: args.bookingType,
-    });
     // Recovery path (FR-013): leave the payments row with booking_id NULL.
-    return { ok: false, error: rpcErr?.message ?? "creator returned no id" };
+    return { ok: false, error: result.error };
   }
   return { ok: true };
 }
