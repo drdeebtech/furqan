@@ -4,7 +4,14 @@ import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 import { emitEvent } from "@/lib/automation/emit";
 import { notify } from "@/lib/notifications/dispatcher";
 import { finalizeAttendance } from "@/lib/domains/attendance/finalize";
+import { awardAchievement } from "@/lib/domains/achievements/award";
+import { notifyParentSessionComplete } from "@/lib/notifications/parent";
 import { logError } from "@/lib/logger";
+
+// Non-human actor id for calls that record "who triggered this" — the same
+// service-actor sentinel used by the n8n-triggered parent-report route
+// (src/app/api/reports/session/[id]/send/route.ts).
+const CRON_ACTOR_ID = "00000000-0000-0000-0000-000000000000";
 
 export const dynamic = "force-dynamic";
 
@@ -156,6 +163,29 @@ export const GET = withAuthedCronMonitor(
               metadata: { session_id: session.id, booking_id: session.booking_id },
             }),
           );
+        }
+
+        // Drift fix: this branch is the cron's own teacher-attended
+        // completion path (kept separate from endSession — see the module
+        // header comment for why full delegation is out of scope). It had
+        // fallen out of sync with endSession's post-commit steps (src/lib/
+        // domains/session/orchestrate.ts), silently skipping the
+        // first_session badge and the parent report for any session closed
+        // by this cron instead of a manual "End Session". Same best-effort
+        // shape as endSession: never block cleanup on these.
+        await awardAchievement(booking.student_id, "first_session").catch((err) =>
+          logError("auto-complete-sessions: first_session award failed", err, {
+            tag: "achievements",
+          }),
+        );
+
+        try {
+          await notifyParentSessionComplete(session.id, CRON_ACTOR_ID);
+        } catch (err) {
+          logError("auto-complete-sessions: notifyParentSessionComplete failed", err, {
+            tag: "cron-auto-complete-sessions",
+            metadata: { student_id: booking.student_id, session_id: session.id },
+          });
         }
 
         // Route through the dispatcher (P3 #345) so preference / quiet-hours
