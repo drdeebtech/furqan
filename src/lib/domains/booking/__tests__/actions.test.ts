@@ -64,7 +64,7 @@ function makeQB(
   const nextSingle = () => {
     if (sharedSingleQueue && sharedSingleQueue.length > 0) {
       const n = sharedSingleQueue.shift()!;
-      return { data: n.data ?? null, error: n.error ?? null };
+      return { data: "data" in n ? n.data : null, error: "error" in n ? n.error : null };
     }
     return singleRes;
   };
@@ -384,10 +384,16 @@ describe("updateBookingStatus", () => {
     // Pre-read observes a non-cancelled (pending) row — same as the winning
     // caller would see. The conditional UPDATE (`.neq("status", newStatus)`)
     // returns 0 rows because a concurrent request already won the race and
-    // flipped the row first. The re-read then reports the current row.
+    // flipped the row first. The re-read returns the WINNER's authoritative
+    // status ("cancelled") — different from the pre-read's "pending" — which
+    // proves the code re-reads current state rather than echoing the stale
+    // pre-read.
     const admin = makeAdmin({
       bookings: {
-        data: { id: "b-1", status: "pending", student_id: "s-1", teacher_id: "t-1" },
+        singleSequence: [
+          { data: { id: "b-1", status: "pending", student_id: "s-1", teacher_id: "t-1" } },
+          { data: { id: "b-1", status: "cancelled", student_id: "s-1", teacher_id: "t-1" } },
+        ],
         updateRows: [],
       },
     });
@@ -400,8 +406,29 @@ describe("updateBookingStatus", () => {
     });
 
     expect(res.alreadyInTargetState).toBe(true);
-    expect(res.oldStatus).toBe("pending");
+    expect(res.oldStatus).toBe("cancelled");
     // Loser of the race writes nothing — no audit_log insert.
+    expect(admin.from).not.toHaveBeenCalledWith("audit_log");
+  });
+
+  it("conditional UPDATE returns 0 rows AND the re-read errors: rejects BookingStatusUpdateError, no audit write", async () => {
+    // Same lost-race shape as above, but the re-read itself fails (RLS
+    // regression / transient DB blip). Must fail loud — never fabricate
+    // alreadyInTargetState when we can't confirm current state.
+    const admin = makeAdmin({
+      bookings: {
+        singleSequence: [
+          { data: { id: "b-1", status: "pending", student_id: "s-1", teacher_id: "t-1" } },
+          { error: { message: "connection reset" } },
+        ],
+        updateRows: [],
+      },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(admin as never);
+
+    await expect(
+      updateBookingStatus({ bookingId: "b-1", newStatus: "cancelled", actorId: "a-1" }),
+    ).rejects.toBeInstanceOf(BookingStatusUpdateError);
     expect(admin.from).not.toHaveBeenCalledWith("audit_log");
   });
 

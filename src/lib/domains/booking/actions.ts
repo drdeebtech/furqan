@@ -385,7 +385,7 @@ export async function updateBookingStatus(
     // UPDATE) — re-read once to report the current, authoritative state.
     // No audit write here: this caller made no change, matching the
     // existing no-op silence on an already-in-target-state transition.
-    const { data: current } = await supabase
+    const { data: current, error: reReadErr } = await supabase
       .from("bookings")
       .select("id, status, student_id, teacher_id")
       .eq("id", bookingId)
@@ -395,6 +395,19 @@ export async function updateBookingStatus(
         student_id: string;
         teacher_id: string;
       }>();
+
+    if (reReadErr) {
+      // Can't tell not-found apart from a transient/RLS error without a
+      // successful read — fail loud rather than silently reporting a
+      // false "already in target state" (matches the domain error
+      // contract used by the primary UPDATE path above).
+      logError("updateBookingStatus: race-path re-read failed", reReadErr, {
+        tag: "booking-domain",
+        severity: "warning",
+        metadata: { bookingId, newStatus, actorId },
+      });
+      throw new BookingStatusUpdateError(reReadErr.message);
+    }
 
     if (!current) {
       throw new BookingNotFoundError(bookingId);
