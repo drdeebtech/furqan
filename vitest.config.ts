@@ -9,6 +9,14 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // ponytail: fork/worker cap dropped — it was an unproven OOM guess, and single-worker
+    // ran 3.7x slower (78s vs 21s). Revisit with the vitest 4 API only if a real CI log
+    // shows an OOM (exit 137 / SIGKILL), not on speculation.
+    // Auto-clear mock call history before every test. Without this, module-level
+    // vi.fn() mocks accumulate calls across tests in a file, so a `.not.toHaveBeenCalled()`
+    // assertion passes only in written order and breaks under any reordering. Clears
+    // history only, not implementations — factory-defined mock behavior survives.
+    clearMocks: true,
     include: ["src/**/*.test.ts", "scripts/**/*.test.ts", "evals/**/*.eval.ts"],
     // Exclude Playwright E2E — they run under a different harness
     exclude: ["e2e/**", "node_modules/**", ".next/**"],
