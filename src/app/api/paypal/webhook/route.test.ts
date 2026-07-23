@@ -104,7 +104,7 @@ const CAPTURE_EVENT = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   dbCalls = [];
   mockIsConfigured.mockReturnValue(true);
   mockCreateAdminClient.mockReturnValue(makeAdmin());
@@ -119,6 +119,22 @@ describe("POST /api/paypal/webhook — characterization (spec 039 2b)", () => {
     const res = await POST(makeReq(CAPTURE_EVENT));
 
     expect(res.status).toBe(400);
+    expect(dbCalls).toEqual([]);
+    expect(mockGrant).not.toHaveBeenCalled();
+  });
+
+  it("1b. isPayPalWebhookConfigured() false → 503 immediately, verify() never called, zero DB writes", async () => {
+    // Gate 1 in route.ts is a distinct code path from the verify()-throws
+    // mapping in test 2: it returns 503 BEFORE the header check / signature
+    // verify call, so it never even reaches PayPal. Force it to false —
+    // previously untested — and assert the short-circuit.
+    mockIsConfigured.mockReturnValue(false);
+
+    const res = await POST(makeReq(CAPTURE_EVENT));
+
+    expect(res.status).toBe(503);
+    expect(mockVerify).not.toHaveBeenCalled();
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
     expect(dbCalls).toEqual([]);
     expect(mockGrant).not.toHaveBeenCalled();
   });
