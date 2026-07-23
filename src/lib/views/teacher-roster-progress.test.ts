@@ -148,4 +148,43 @@ describe("getTeacherRosterProgress", () => {
     chain.returns.mockResolvedValueOnce({ data: null, error: { message: "rpc fail" } });
     await expect(getTeacherRosterProgress(chain as never, TEACHER)).rejects.toThrow("rpc fail");
   });
+
+  it("throws when the profiles query errors", async () => {
+    chain.returns
+      .mockResolvedValueOnce({ data: [{ student_id: "s1" }], error: null }) // distinct students
+      .mockResolvedValueOnce({ data: null, error: { message: "profiles fail" } }); // profiles
+    await expect(getTeacherRosterProgress(chain as never, TEACHER)).rejects.toThrow("profiles fail");
+  });
+
+  it("throws when the evaluations RPC errors", async () => {
+    chain.returns
+      .mockResolvedValueOnce({ data: [{ student_id: "s1" }], error: null }) // distinct students
+      .mockResolvedValueOnce({ data: [{ id: "s1", full_name: "Aisha" }], error: null }) // profiles
+      .mockResolvedValueOnce({ data: null, error: { message: "evals fail" } }); // evals RPC
+    await expect(getTeacherRosterProgress(chain as never, TEACHER)).rejects.toThrow("evals fail");
+  });
+
+  it("trims client-side to 5 evaluations per student when the RPC over-returns", async () => {
+    const now = Date.now();
+    const makeEval = (n: number) => ({
+      student_id: "s1",
+      evaluation_date: new Date(now - n * 24 * 60 * 60 * 1000).toISOString(),
+      hifz_score: n,
+      tajweed_score: n,
+      fluency_score: n,
+      attendance_score: n,
+      overall_score: n,
+    });
+    chain.returns
+      .mockResolvedValueOnce({ data: [{ student_id: "s1" }], error: null }) // distinct students
+      .mockResolvedValueOnce({ data: [{ id: "s1", full_name: "Aisha" }], error: null }) // profiles
+      .mockResolvedValueOnce({
+        data: [makeEval(1), makeEval(2), makeEval(3), makeEval(4), makeEval(5), makeEval(6)],
+        error: null,
+      }); // evals RPC — 6 rows for one student even though the RPC contracts to 5 (client-side safety net under test)
+
+    const rows = await getTeacherRosterProgress(chain as never, TEACHER);
+
+    expect(rows[0].evalCount).toBe(5);
+  });
 });
