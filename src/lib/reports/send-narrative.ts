@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 import { buildSessionNarrative, type SessionNarrative } from "./session-narrative";
 
 export interface SendNarrativeInput {
@@ -103,12 +104,11 @@ export async function sendSessionNarrative(input: SendNarrativeInput): Promise<S
       teacher_id: booking.teacher_id,
       report_type: "session_summary",
       title: final.subject,
-      body: emailBody,
-      sent_to_email: studentProfile?.parent_email ?? null,
-      sent_to_phone: studentProfile?.parent_phone ?? null,
-      created_by: input.actorId,
+      content: emailBody,
+      parent_email: studentProfile?.parent_email ?? null,
+      parent_phone: studentProfile?.parent_phone ?? null,
       sent_at: new Date().toISOString(),
-    } as never)
+    } satisfies TableInsert<"parent_reports">)
     .select("id")
     .single<{ id: string }>();
 
