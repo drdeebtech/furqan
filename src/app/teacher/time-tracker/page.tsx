@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { getTeacherTeachingHours } from "@/lib/teacher-queries";
+import { getTeacherTeachingHours } from "@/lib/views/teacher-hours";
 import { TeachingHoursView } from "./teaching-hours-view";
 
 export const metadata: Metadata = { title: "ساعاتي" };
@@ -18,7 +18,7 @@ export default async function TeacherTimeTrackerPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const summary = await getTeacherTeachingHours(user.id);
+  const summary = await getTeacherTeachingHours(supabase, user.id);
   const empty = summary.thisMonthMinutes === 0;
 
   return (
