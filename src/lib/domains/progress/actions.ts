@@ -48,13 +48,19 @@ export async function createEvaluationRecord(
     if (input.teacherId !== input.actor.id) {
       throw new UserError("لا يمكنك إنشاء تقييم باسم معلم آخر");
     }
-    const { data: relation } = await supabase
+    const { data: relation, error: relationError } = await supabase
       .from("bookings")
       .select("id")
       .eq("teacher_id", input.actor.id)
       .eq("student_id", input.studentId)
       .limit(1)
       .maybeSingle();
+    // A DB/RLS failure surfaces as { data: null, error }, indistinguishable
+    // from "no relation" if left unchecked — that would misclassify an
+    // infra failure as an authz denial (CodeRabbit finding on PR #771).
+    if (relationError) {
+      throw new Error("evaluation relation check failed: " + relationError.message);
+    }
     if (!relation) throw new UserError("لا يمكنك تقييم طالب لم تُدرّسه");
   }
 

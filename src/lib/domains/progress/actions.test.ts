@@ -54,10 +54,13 @@ const BASE_INPUT: CreateEvaluationInput = {
 // house style in _shared/teacher-reads.test.ts and orchestrate.test.ts.
 function createFakeClient(opts: {
   relation?: { id: string } | null;
+  relationError?: { message: string } | null;
   insertError?: unknown;
 }) {
   const insertMock = vi.fn(() => Promise.resolve({ error: opts.insertError ?? null }));
-  const maybeSingleMock = vi.fn().mockResolvedValue({ data: opts.relation ?? null });
+  const maybeSingleMock = vi
+    .fn()
+    .mockResolvedValue({ data: opts.relation ?? null, error: opts.relationError ?? null });
 
   const bookingsBuilder = {
     select: vi.fn().mockReturnThis(),
@@ -194,5 +197,23 @@ describe("createEvaluationRecord", () => {
     ).rejects.toThrow("لا يمكنك إنشاء تقييم باسم معلم آخر");
 
     expect(client.insertMock).not.toHaveBeenCalled();
+  });
+
+  it("relation lookup fails at the DB/RLS level: rejects with a non-UserError infra error, never inserts or notifies", async () => {
+    const client = createFakeClient({
+      relation: null,
+      relationError: { message: "rls denied" },
+    });
+
+    await expect(createEvaluationRecord(client as never, BASE_INPUT)).rejects.not.toBeInstanceOf(
+      UserError,
+    );
+    await expect(createEvaluationRecord(client as never, BASE_INPUT)).rejects.toThrow(
+      "evaluation relation check failed: rls denied",
+    );
+
+    expect(client.insertMock).not.toHaveBeenCalled();
+    expect(mockNotify).not.toHaveBeenCalled();
+    expect(mockEmitEvent).not.toHaveBeenCalled();
   });
 });
