@@ -59,7 +59,14 @@ const parentReportsChain = {
 };
 const automationLogsInsertChain = { insert: vi.fn().mockResolvedValue({ error: null }) };
 
-const fromMock = vi.fn();
+// vi.mock factories run during hoisted mock registration, before any of this
+// file's own top-level code — a plain `const fromMock = vi.fn()` here would
+// be a live TDZ reference when the "@/lib/supabase/admin" factory below
+// closes over it (it happens to work today only because the import that
+// triggers module evaluation is written after this line; reorder the
+// imports and it breaks). vi.hoisted initializes it before any hoisted
+// vi.mock factory runs, so the closure is never fragile on source order.
+const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }));
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({ from: fromMock })),
