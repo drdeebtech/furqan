@@ -24,6 +24,8 @@ import { AddStudentControl } from "./add-student-control";
 import { NoErrorsButton } from "./no-errors-button";
 import type { LessonPlan } from "@/lib/actions/session-lesson-plan";
 import { isFeatureEnabled } from "@/lib/settings";
+import { Suspense } from "react";
+import { SessionPrepCard, SessionPrepCardSkeleton } from "./session-prep-card";
 
 export const metadata: Metadata = { title: "الجلسة" };
 
@@ -316,6 +318,16 @@ export default async function TeacherSessionPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {/* Session prep card (#568) — deterministic, non-AI. Streams in via
+          Suspense so its two DB queries never block the page render. Scoped to
+          the primary student; single-student sessions only (group per-student
+          prep is a separate UI, mirroring the block below). */}
+      {!isCompleted && enrolledList.length <= 1 && (
+        <Suspense fallback={<SessionPrepCardSkeleton />}>
+          <SessionPrepCard studentId={booking.student_id} />
+        </Suspense>
+      )}
 
       {/* Pre-session prep — what THIS teacher told THIS student last time +
           recent error patterns + last memorization position. Helps the
