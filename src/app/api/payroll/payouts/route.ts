@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import {
-  ForbiddenError,
-  UnauthenticatedError,
-  requireRole,
-} from "@/lib/auth/require-admin";
+import { requireRoleForApi } from "@/lib/auth/require-admin";
 import { getPayouts } from "@/lib/domains/attendance/payroll";
 import { logError } from "@/lib/logger";
 
@@ -22,18 +18,9 @@ const querySchema = z.object({
  * explicit 403 instead of a probing-friendly empty 200.
  */
 export async function GET(request: Request) {
-  let userId: string;
-  try {
-    ({ id: userId } = await requireRole(["teacher", "admin"]));
-  } catch (e) {
-    if (e instanceof UnauthenticatedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e instanceof ForbiddenError) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    throw e;
-  }
+  const g = await requireRoleForApi(["teacher", "admin"]);
+  if (g instanceof NextResponse) return g;
+  const userId = g.id;
 
   const { searchParams } = new URL(request.url);
   const result = querySchema.safeParse(Object.fromEntries(searchParams));

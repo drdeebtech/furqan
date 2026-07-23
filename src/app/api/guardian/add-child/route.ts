@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireRole } from "@/lib/auth/require-admin";
-import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+import { requireRoleForApi } from "@/lib/auth/require-admin";
 import { guardianCodeMatches } from "@/lib/auth/guardian-link-code";
 import { logError } from "@/lib/logger";
 
@@ -24,18 +23,9 @@ const Body = z.object({
 });
 
 export async function POST(request: Request) {
-  let userId: string;
-  try {
-    ({ id: userId } = await requireRole("guardian"));
-  } catch (e) {
-    if (e instanceof UnauthenticatedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e instanceof ForbiddenError) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    throw e;
-  }
+  const g = await requireRoleForApi("guardian");
+  if (g instanceof NextResponse) return g;
+  const userId = g.id;
 
   // admin: authed guardian, but links ANOTHER user (child) — cross-user write (RLS blocks authed inserts) (issue #523)
   const admin = createAdminClient();
