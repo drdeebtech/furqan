@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import {
   getTalqeenQueueForTeacher,
   type TalqeenFilter,
-} from "@/lib/teacher-queries";
+} from "@/lib/views/teacher-talqeen";
 import { TalqeenQueue } from "./talqeen-queue";
 
 export const metadata: Metadata = { title: "صندوق التلقين" };
@@ -37,7 +37,7 @@ export default async function TeacherTalqeenPage({
   const params = await searchParams;
   const filter = parseFilter(params.filter);
 
-  const rows = await getTalqeenQueueForTeacher(user.id, filter);
+  const rows = await getTalqeenQueueForTeacher(supabase, user.id, filter);
   const overdueCount = rows.filter((r) => r.streakBreakRisk).length;
 
   return (
