@@ -69,9 +69,10 @@ export class WebhookTransientError extends Error {
 }
 
 export async function markEvent(
-  ctx: EventContext,
+  ctx: Pick<EventContext, "admin" | "billingEventId">,
   status: "processed" | "ignored" | "failed",
   errorDetail?: string,
+  logTag = "stripe-webhook",
 ): Promise<void> {
   if (!ctx.billingEventId) return;
   const { error } = await ctx.admin
@@ -79,10 +80,97 @@ export async function markEvent(
     .update({ status, ...(errorDetail ? { error_detail: errorDetail.slice(0, 500) } : {}) })
     .eq("id", ctx.billingEventId);
   if (error) {
-    logError("stripe-webhook: markEvent failed", error, {
-      tag: "stripe-webhook", billing_event_id: ctx.billingEventId, status,
+    logError(`${logTag}: markEvent failed`, error, {
+      tag: logTag, billing_event_id: ctx.billingEventId, status,
     });
   }
+}
+
+// ── ADR-0005: billing_events idempotency ledger (shared by all 3 provider
+// webhook routes — stripe/webhook, stripe/connect-webhook, paypal/webhook) ────
+
+/** Provider that emitted the event; matches the `billing_events.provider` CHECK. */
+export type BillingEventProvider = "stripe" | "paypal";
+
+export interface IngestBillingEventInput {
+  provider: BillingEventProvider;
+  /** Provider's event id — stored in the shared `stripe_event_id` UNIQUE column
+   *  (Stripe and PayPal event ids never collide; see migration 20260719000100). */
+  eventId: string;
+  eventType: string;
+  /** Event creation time in epoch ms. Stripe: `event.created * 1000`. PayPal:
+   *  `Date.parse(event.create_time)` or `Date.now()` when absent — the route
+   *  owns that translation; this function only ever sees a number. */
+  createdMs: number;
+  payload: unknown;
+}
+
+export type IngestBillingEventOutcome = "new" | "duplicate" | "redispatch";
+
+export interface IngestBillingEventResult {
+  outcome: IngestBillingEventOutcome;
+  billingEventId: string | null;
+}
+
+/** billing_events statuses that mean "already fully handled" — a duplicate
+ *  delivery of one of these is a no-op. Anything else (received/failed) is a
+ *  prior incomplete delivery and must be re-dispatched, not dropped. */
+const TERMINAL_BILLING_EVENT_STATUSES = new Set(["processed", "ignored"]);
+
+/**
+ * Insert-or-detect-duplicate against the `billing_events` idempotency ledger.
+ * This is ONLY the ledger write + dedup check — routing the event to its
+ * handler (dispatch) stays provider-specific and lives in each route.
+ *
+ * - insert succeeds → outcome 'new', billingEventId = the new row's id.
+ * - insert 23505 (duplicate) + prior row is terminal (processed/ignored) →
+ *   outcome 'duplicate' — the route returns 200 with no further dispatch.
+ * - insert 23505 + prior row is NOT terminal (received/failed — an earlier
+ *   delivery never finished) → outcome 'redispatch' — the route re-dispatches
+ *   in place using the existing row's id.
+ * - any other insert error → THROWN (the route maps this to its own 500
+ *   "Ledger write failed" response and log line).
+ */
+export async function ingestBillingEvent(
+  admin: ReturnType<typeof createAdminClient>,
+  input: IngestBillingEventInput,
+): Promise<IngestBillingEventResult> {
+  const { provider, eventId, eventType, createdMs, payload } = input;
+
+  const { data: insertedRow, error: insErr } = await admin
+    .from("billing_events")
+    .insert({
+      stripe_event_id: eventId,
+      event_type: eventType,
+      stripe_event_created: new Date(createdMs).toISOString(),
+      status: "received",
+      payload: payload as Json,
+      provider,
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (!insErr) {
+    return { outcome: "new", billingEventId: insertedRow?.id ?? null };
+  }
+
+  if (insErr.code !== "23505") {
+    throw insErr;
+  }
+
+  // Duplicate delivery — check the prior row's terminal status before
+  // treating this as a no-op (idempotency gap fix): a prior failed/received
+  // delivery never finished and must be re-attempted, not silently dropped.
+  const { data: dupRow } = await admin
+    .from("billing_events")
+    .select("id, status")
+    .eq("stripe_event_id", eventId)
+    .maybeSingle<{ id: string; status: string }>();
+
+  if (!dupRow || TERMINAL_BILLING_EVENT_STATUSES.has(dupRow.status)) {
+    return { outcome: "duplicate", billingEventId: dupRow?.id ?? null };
+  }
+  return { outcome: "redispatch", billingEventId: dupRow.id };
 }
 
 /** Extract the subscription id from a dahlia-era invoice. */

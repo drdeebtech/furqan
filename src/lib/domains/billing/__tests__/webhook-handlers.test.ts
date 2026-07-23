@@ -44,6 +44,7 @@ vi.mock("@/lib/posthog-server", () => ({
 
 import {
   markEvent,
+  ingestBillingEvent,
   handleSubscriptionLifecycle,
   handleSubscriptionDeleted,
   handleInvoicePaid,
@@ -51,6 +52,7 @@ import {
   handlePaymentIntentSucceeded,
   handleChargeRefunded,
   revokeAndCancelOnSubscriptionRefund,
+  type EventContext,
 } from "../webhook-handlers";
 import { emitEvent } from "@/lib/automation/emit";
 import { upsertMirror } from "@/lib/domains/billing/subscriptions";
@@ -79,7 +81,7 @@ function makeEventCtx(
   admin: MockAdmin,
   billingEventId: string | null = "evt-1",
   eventData: Record<string, unknown> = {},
-): Parameters<typeof markEvent>[0] {
+): EventContext {
   return {
     admin: admin as never,
     stripe: {} as never,
@@ -139,6 +141,111 @@ describe("markEvent", () => {
 
     // markEvent is best-effort — it must not throw on DB error
     await expect(markEvent(ctx, "processed")).resolves.toBeUndefined();
+  });
+});
+
+// ── ingestBillingEvent ────────────────────────────────────────────────────────
+// Shared idempotency-ledger seam for all three provider webhook routes
+// (stripe/webhook, stripe/connect-webhook, paypal/webhook). See ADR-0005.
+
+type DupRow = { id: string; status: string } | null;
+
+function makeIngestAdmin(opts: {
+  insertError: { code: string; message?: string } | null;
+  insertedId?: string | null;
+  dupRow?: DupRow;
+}): { admin: MockAdmin; insertFn: ReturnType<typeof vi.fn>; dupSelectFn: ReturnType<typeof vi.fn> } {
+  const maybeSingleInsert = vi.fn().mockResolvedValue({
+    data: opts.insertedId !== undefined && opts.insertedId !== null ? { id: opts.insertedId } : null,
+    error: opts.insertError,
+  });
+  const selectAfterInsert = vi.fn().mockReturnValue({ maybeSingle: maybeSingleInsert });
+  const insertFn = vi.fn().mockReturnValue({ select: selectAfterInsert });
+
+  const maybeSingleDup = vi.fn().mockResolvedValue({ data: opts.dupRow ?? null, error: null });
+  const eqFn = vi.fn().mockReturnValue({ maybeSingle: maybeSingleDup });
+  const dupSelectFn = vi.fn().mockReturnValue({ eq: eqFn });
+
+  const fromFn = vi.fn(() => ({ insert: insertFn, select: dupSelectFn }));
+  return { admin: { from: fromFn }, insertFn, dupSelectFn };
+}
+
+const INGEST_INPUT = {
+  provider: "stripe" as const,
+  eventId: "evt_ingest_1",
+  eventType: "invoice.paid",
+  createdMs: 1_700_000_000_000,
+  payload: { id: "evt_ingest_1" },
+};
+
+describe("ingestBillingEvent", () => {
+  it("new event: attempts the insert and returns outcome 'new' with the inserted row id", async () => {
+    const { admin, insertFn } = makeIngestAdmin({ insertError: null, insertedId: "row-new-1" });
+
+    const result = await ingestBillingEvent(admin as never, INGEST_INPUT);
+
+    expect(insertFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripe_event_id: "evt_ingest_1",
+        event_type: "invoice.paid",
+        status: "received",
+        provider: "stripe",
+      }),
+    );
+    expect(result).toEqual({ outcome: "new", billingEventId: "row-new-1" });
+  });
+
+  it("duplicate delivery of a terminal (processed) event: outcome 'duplicate', no dispatch signal", async () => {
+    const { admin, dupSelectFn } = makeIngestAdmin({
+      insertError: { code: "23505" },
+      dupRow: { id: "row-dup-1", status: "processed" },
+    });
+
+    const result = await ingestBillingEvent(admin as never, INGEST_INPUT);
+
+    expect(dupSelectFn).toHaveBeenCalled();
+    expect(result).toEqual({ outcome: "duplicate", billingEventId: "row-dup-1" });
+  });
+
+  it("duplicate delivery of a terminal (ignored) event: outcome 'duplicate'", async () => {
+    const { admin } = makeIngestAdmin({
+      insertError: { code: "23505" },
+      dupRow: { id: "row-dup-2", status: "ignored" },
+    });
+
+    const result = await ingestBillingEvent(admin as never, INGEST_INPUT);
+
+    expect(result).toEqual({ outcome: "duplicate", billingEventId: "row-dup-2" });
+  });
+
+  it("duplicate delivery of a non-terminal (received) event: outcome 'redispatch' — must re-attempt, not drop", async () => {
+    const { admin } = makeIngestAdmin({
+      insertError: { code: "23505" },
+      dupRow: { id: "row-dup-3", status: "received" },
+    });
+
+    const result = await ingestBillingEvent(admin as never, INGEST_INPUT);
+
+    expect(result).toEqual({ outcome: "redispatch", billingEventId: "row-dup-3" });
+  });
+
+  it("duplicate delivery of a non-terminal (failed) event: outcome 'redispatch'", async () => {
+    const { admin } = makeIngestAdmin({
+      insertError: { code: "23505" },
+      dupRow: { id: "row-dup-4", status: "failed" },
+    });
+
+    const result = await ingestBillingEvent(admin as never, INGEST_INPUT);
+
+    expect(result).toEqual({ outcome: "redispatch", billingEventId: "row-dup-4" });
+  });
+
+  it("a genuine (non-23505) insert error propagates — the route maps this to a 500 'Ledger write failed'", async () => {
+    const { admin } = makeIngestAdmin({ insertError: { code: "42P01", message: "boom" } });
+
+    await expect(ingestBillingEvent(admin as never, INGEST_INPUT)).rejects.toMatchObject({
+      code: "42P01",
+    });
   });
 });
 
