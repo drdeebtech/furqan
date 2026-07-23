@@ -93,16 +93,35 @@ export const GET = withAuthedCronMonitor(
       const teacherAttended = session.teacher_joined === true;
 
       try {
-        // Always close the stranded session so the ghost timer clears.
-        const { error: sessionUpdateErr } = await admin
+        // Always close the stranded session so the ghost timer clears. An
+        // UPDATE matching zero rows still returns success with no error in
+        // Supabase — `.select("id")` is required to tell "we closed it"
+        // apart from "another closer (a manual endSession, or a concurrent
+        // cron run) already won the race". When we lost the race, none of
+        // the post-close side effects below (booking completion, payroll,
+        // notify, audit, emit, badge, parent report) may run — the winner
+        // already ran them; re-running here would double them.
+        const { data: closedRows, error: sessionUpdateErr } = await admin
           .from("sessions")
           .update({
             ended_at: now.toISOString(),
             actual_duration: actualDuration,
           })
           .eq("id", session.id)
-          .is("ended_at", null);
+          .is("ended_at", null)
+          .select("id");
         if (sessionUpdateErr) throw sessionUpdateErr;
+        if (!closedRows || closedRows.length === 0) {
+          logError(
+            "auto-complete-sessions: lost the close race — another closer already ended this session, skipping side effects",
+            null,
+            {
+              tag: "cron-auto-complete-sessions",
+              metadata: { session_id: session.id, booking_id: session.booking_id },
+            },
+          );
+          continue;
+        }
 
         if (!teacherAttended) {
           // F3: the teacher never joined, so this is NOT a real completed

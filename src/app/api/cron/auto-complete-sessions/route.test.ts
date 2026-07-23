@@ -89,15 +89,27 @@ function makeChain(result: unknown) {
     is: vi.fn(() => chain),
     not: vi.fn(() => chain),
     in: vi.fn(() => chain),
+    select: vi.fn(() => chain),
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
   };
   return chain;
 }
 
-/** Teacher-attended, student-attended stranded session, 70min elapsed vs a 30min booking. */
-function makeAdmin() {
+// Shared across makeAdmin() instances so a test can assert the booking
+// completion write never happened when the session-close race was lost.
+const mockBookingsUpdate = vi.fn(() => makeChain({ error: null }));
+
+/**
+ * Teacher-attended, student-attended stranded session, 70min elapsed vs a
+ * 30min booking. `closedSessionRows` controls what the race-guarded session
+ * close (`.update(...).eq(...).is(...).select("id")`) returns — a non-empty
+ * array is "we won the race and closed it" (the default, matching a normal
+ * run); an empty array simulates another closer having already won.
+ */
+function makeAdmin(opts: { closedSessionRows?: { id: string }[] } = {}) {
   const startedAt = new Date(Date.now() - 70 * 60_000).toISOString();
+  const closedSessionRows = opts.closedSessionRows ?? [{ id: SESSION_ID }];
   const sessionRow = {
     id: SESSION_ID,
     booking_id: BOOKING_ID,
@@ -119,7 +131,11 @@ function makeAdmin() {
         if (table === "bookings") return makeChain({ data: [bookingRow], error: null });
         return makeChain({ data: [], error: null });
       }),
-      update: vi.fn(() => makeChain({ error: null })),
+      update: vi.fn(() => {
+        if (table === "sessions") return makeChain({ data: closedSessionRows, error: null });
+        if (table === "bookings") return mockBookingsUpdate();
+        return makeChain({ error: null });
+      }),
       insert: vi.fn(() => makeChain({ error: null })),
     })),
   };
@@ -145,5 +161,45 @@ describe("cron auto-complete-sessions — teacher-attended branch", () => {
       SESSION_ID,
       "00000000-0000-0000-0000-000000000000",
     );
+  });
+});
+
+describe("cron auto-complete-sessions — lost the close race (zero rows closed)", () => {
+  // Negative control: another closer (a manual endSession, or a concurrent
+  // cron run) already set ended_at between our select and our update, so the
+  // race-guarded `.is("ended_at", null)` update matches zero rows. Supabase
+  // returns that as SUCCESS with no error, so without the `.select("id")`
+  // zero-rows check this test would fail to discriminate anything — it must
+  // be RED before the guard and GREEN after.
+  it("skips every post-close side effect and does not complete the booking", async () => {
+    mockCreateAdminClient.mockReturnValue(makeAdmin({ closedSessionRows: [] }));
+
+    const res = await GET(FAKE_REQUEST);
+    const body = await res.json();
+
+    expect(mockBookingsUpdate).not.toHaveBeenCalled();
+    expect(mockFinalizeAttendance).not.toHaveBeenCalled();
+    expect(mockAwardAchievement).not.toHaveBeenCalled();
+    expect(mockNotifyParentSessionComplete).not.toHaveBeenCalled();
+    expect(mockNotify).not.toHaveBeenCalled();
+    expect(mockEmitEvent).not.toHaveBeenCalled();
+    // The loop still drains to the end (no throw), just with nothing ended.
+    expect(body.ended).toBe(0);
+  });
+
+  // Positive control: same fixture, normal (non-race) path — same
+  // assertions on the winner's side flip to "was called". Proves the mocks
+  // above are wired to fire under ordinary conditions, not just silent.
+  it("(control) runs every post-close side effect when the race is won", async () => {
+    mockCreateAdminClient.mockReturnValue(makeAdmin({ closedSessionRows: [{ id: SESSION_ID }] }));
+
+    const res = await GET(FAKE_REQUEST);
+    const body = await res.json();
+
+    expect(mockBookingsUpdate).toHaveBeenCalledTimes(1);
+    expect(mockFinalizeAttendance).toHaveBeenCalledTimes(1);
+    expect(mockAwardAchievement).toHaveBeenCalledTimes(1);
+    expect(mockNotifyParentSessionComplete).toHaveBeenCalledTimes(1);
+    expect(body.ended).toBe(1);
   });
 });
