@@ -244,3 +244,40 @@ export class BookingNoPackageError extends BookingConfirmError {
     this.name = "BookingNoPackageError";
   }
 }
+
+// ─── cancelBooking (use-case orchestrator) ──────────────────────────────────
+//
+// ADR-0004 follow-up. The booking-cancel choreography (domain write +
+// notify + emitEvent) previously existed three divergent times (teacher
+// hand-rolled everything; admin never notified the student; bulk stays
+// intentionally silent). This bundles the teacher/admin single-cancel
+// path into one orchestrator on top of the existing `updateBookingStatus`
+// domain write — bulk intentionally keeps calling that domain write
+// directly and does not use this orchestrator.
+
+/**
+ * Structured input for `cancelBooking`.
+ *
+ * `actorRole` selects the student-facing notification wording (teacher
+ * "rejected" vs admin "cancelled" phrasing) — the two flows read
+ * differently to a student even though both land on `cancelled`.
+ */
+export interface CancelBookingInput {
+  bookingId: string;
+  actorId: string;
+  /** Selects the student-facing message. */
+  actorRole: "teacher" | "admin";
+  reason?: string;
+}
+
+/**
+ * Result of a successful `cancelBooking`. `alreadyCancelled` mirrors
+ * `updateBookingStatus`'s `alreadyInTargetState` — true on an idempotent
+ * retry, in which case notify/emit were skipped.
+ */
+export interface CancelBookingResult {
+  bookingId: string;
+  studentId: string;
+  teacherId: string;
+  alreadyCancelled: boolean;
+}
