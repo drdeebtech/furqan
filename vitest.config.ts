@@ -9,13 +9,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    // Cap the fork pool to one worker at a time. The CI unit-test job runs on a
-    // resource-constrained `medium` executor (2 vCPU / 4 GB) and this suite has a
-    // heavy module graph (import ~6x test-exec time), so the default (one fork per
-    // CPU) can load two full graphs at once and OOM-kill a worker — an intermittent,
-    // test-agnostic failure. One fork keeps peak memory low; per-file isolation stays
-    // ON (default), so this does NOT reintroduce cross-file state leakage.
-    poolOptions: { forks: { minForks: 1, maxForks: 1 } },
+    // ponytail: fork/worker cap dropped — it was an unproven OOM guess, and single-worker
+    // ran 3.7x slower (78s vs 21s). Revisit with the vitest 4 API only if a real CI log
+    // shows an OOM (exit 137 / SIGKILL), not on speculation.
     // Auto-clear mock call history before every test. Without this, module-level
     // vi.fn() mocks accumulate calls across tests in a file, so a `.not.toHaveBeenCalled()`
     // assertion passes only in written order and breaks under any reordering. Clears
