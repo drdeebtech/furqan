@@ -61,6 +61,21 @@ describe("getTeacherTalqeenInbox", () => {
     chain.returns.mockResolvedValueOnce({ data: null, count: null, error: new Error("db fail") });
     await expect(getTeacherTalqeenInbox(chain as never, TEACHER)).rejects.toThrow("db fail");
   });
+
+  it("falls back to rows.length for totalCount when count is null but rows exist", async () => {
+    chain.returns
+      .mockResolvedValueOnce({
+        data: [
+          { id: "h1", title: "Al-Fatiha", student_id: "s1", audio_duration_seconds: 10, ready_at: null },
+        ],
+        count: null,
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: [{ id: "s1", full_name: "Aisha" }], error: null });
+
+    const result = await getTeacherTalqeenInbox(chain as never, TEACHER);
+    expect(result.totalCount).toBe(1);
+  });
 });
 
 describe("getTeacherParentReportDigest", () => {
@@ -140,6 +155,20 @@ describe("getTeacherParentReportDigest", () => {
     expect(result.recent).toEqual([
       { id: "r1", reportType: "progress", studentName: "Aisha", createdAt: "2026-06-21T00:00:00.000Z", sent: false },
     ]);
+  });
+
+  it("throws when the type-breakdown query errors", async () => {
+    chain.returns
+      .mockResolvedValueOnce({
+        data: [
+          { id: "r1", report_type: "progress", student_id: "s1", sent_at: null, created_at: "2026-06-21T00:00:00.000Z" },
+        ],
+        count: 5,
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: null, error: new Error("db fail") });
+
+    await expect(getTeacherParentReportDigest(chain as never, TEACHER)).rejects.toThrow("db fail");
   });
 
   describe("7-day window boundary", () => {
