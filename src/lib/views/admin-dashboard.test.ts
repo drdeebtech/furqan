@@ -53,6 +53,26 @@ describe("getAdminMonthlyRevenueTrend", () => {
     expect(chain.gte).toHaveBeenCalledTimes(2);
     expect(chain.lt).toHaveBeenCalledWith("created_at", expect.any(String));
   });
+
+  it("clamps changePct to 100 when there was no revenue last month but there is this month", async () => {
+    chain.returns
+      .mockResolvedValueOnce({ data: [{ amount_usd: 50 }], error: null }) // current
+      .mockResolvedValueOnce({ data: [], error: null }); // previous
+
+    const result = await getAdminMonthlyRevenueTrend(chain as never);
+
+    expect(result).toEqual({ currentMonthUsd: 50, previousMonthUsd: 0, changePct: 100 });
+  });
+
+  it("reports changePct=0 and treats missing/null query data and falsy amounts as zero revenue", async () => {
+    chain.returns
+      .mockResolvedValueOnce({ data: null, error: { message: "db down" } }) // current
+      .mockResolvedValueOnce({ data: [{ amount_usd: 0 }], error: null }); // previous
+
+    const result = await getAdminMonthlyRevenueTrend(chain as never);
+
+    expect(result).toEqual({ currentMonthUsd: 0, previousMonthUsd: 0, changePct: 0 });
+  });
 });
 
 describe("getAdminDailyRevenue", () => {
@@ -82,6 +102,41 @@ describe("getAdminDailyRevenue", () => {
     expect(chain.from).toHaveBeenCalledWith("bookings");
     expect(chain.eq).toHaveBeenCalledWith("status", "completed");
     expect(chain.gte).toHaveBeenCalledWith("created_at", expect.any(String));
+  });
+
+  it("returns an empty week and does not throw when the query errors", async () => {
+    chain.returns.mockResolvedValueOnce({ data: null, error: { message: "db down" } });
+
+    const result = await getAdminDailyRevenue(chain as never, "en");
+
+    expect(result).toEqual([
+      { day: "Mon", value: 0, isActive: false },
+      { day: "Tues", value: 0, isActive: false },
+      { day: "Wed", value: 0, isActive: false },
+      { day: "Thurs", value: 0, isActive: false },
+      { day: "Fri", value: 0, isActive: false },
+      { day: "Sat", value: 0, isActive: false },
+      { day: "Sun", value: 0, isActive: false },
+    ]);
+  });
+
+  it("returns an empty week for zero completed bookings", async () => {
+    chain.returns.mockResolvedValueOnce({ data: [], error: null });
+
+    const result = await getAdminDailyRevenue(chain as never, "en");
+
+    expect(result[0]).toEqual({ day: "Mon", value: 0, isActive: false });
+  });
+
+  it("buckets by weekday with Arabic day labels", async () => {
+    chain.returns.mockResolvedValueOnce({
+      data: [{ amount_usd: 40, created_at: "2026-06-15T10:00:00.000Z" }], // Monday
+      error: null,
+    });
+
+    const result = await getAdminDailyRevenue(chain as never, "ar");
+
+    expect(result[0]).toEqual({ day: "إثنين", value: 40, isActive: true });
   });
 });
 
@@ -125,6 +180,51 @@ describe("getPlatformLiveSessions", () => {
     expect(chain.is).toHaveBeenCalledWith("ended_at", null);
     expect(chain.gte).toHaveBeenCalledWith("started_at", expect.any(String));
   });
+
+  it("returns [] when the sessions query errors", async () => {
+    chain.returns.mockResolvedValueOnce({ data: null, error: { message: "db down" } });
+
+    const result = await getPlatformLiveSessions(chain as never);
+
+    expect(result).toEqual([]);
+  });
+
+  it("returns [] when there are no live sessions", async () => {
+    chain.returns.mockResolvedValueOnce({ data: [], error: null });
+
+    const result = await getPlatformLiveSessions(chain as never);
+
+    expect(result).toEqual([]);
+  });
+
+  it("falls back to em-dash placeholders when booking/student/teacher/session_type are missing", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
+
+    chain.returns.mockResolvedValueOnce({
+      data: [
+        {
+          id: "sess-2",
+          started_at: "2026-06-15T11:30:00.000Z",
+          booking: null,
+        },
+      ],
+      error: null,
+    });
+
+    const result = await getPlatformLiveSessions(chain as never);
+
+    expect(result).toEqual([
+      {
+        id: "sess-2",
+        title: "— ← —",
+        subtitle: "session",
+        initials: "—",
+        timeRemaining: "00:30:00",
+        progressPercent: undefined,
+      },
+    ]);
+  });
 });
 
 describe("getAdminBookingStatusBreakdown", () => {
@@ -148,6 +248,44 @@ describe("getAdminBookingStatusBreakdown", () => {
 
     expect(chain.from).toHaveBeenCalledWith("bookings");
     expect(chain.gte).toHaveBeenCalledWith("created_at", expect.any(String));
+  });
+
+  it("returns [] when the query errors", async () => {
+    chain.returns.mockResolvedValueOnce({ data: null, error: { message: "db down" } });
+
+    const result = await getAdminBookingStatusBreakdown(chain as never, "en");
+
+    expect(result).toEqual([]);
+  });
+
+  it("returns [] for an empty result set", async () => {
+    chain.returns.mockResolvedValueOnce({ data: [], error: null });
+
+    const result = await getAdminBookingStatusBreakdown(chain as never, "en");
+
+    expect(result).toEqual([]);
+  });
+
+  it("falls back to the raw status string and gray color for an unrecognized status", async () => {
+    chain.returns.mockResolvedValueOnce({
+      data: [{ status: "weird_status" }],
+      error: null,
+    });
+
+    const result = await getAdminBookingStatusBreakdown(chain as never, "en");
+
+    expect(result).toEqual([{ label: "weird_status", value: 1, color: "#9CA3AF" }]);
+  });
+
+  it("uses Arabic labels when lang=ar", async () => {
+    chain.returns.mockResolvedValueOnce({
+      data: [{ status: "completed" }],
+      error: null,
+    });
+
+    const result = await getAdminBookingStatusBreakdown(chain as never, "ar");
+
+    expect(result).toEqual([{ label: "مكتمل", value: 1, color: "#22C55E" }]);
   });
 });
 
@@ -184,5 +322,83 @@ describe("getAdminRecentBookings", () => {
     expect(chain.from).toHaveBeenCalledWith("bookings");
     expect(chain.order).toHaveBeenCalledWith("created_at", { ascending: false });
     expect(chain.limit).toHaveBeenCalledWith(6);
+  });
+
+  it("returns [] when the query errors", async () => {
+    chain.returns.mockResolvedValueOnce({ data: null, error: { message: "db down" } });
+
+    const result = await getAdminRecentBookings(chain as never, 6, "en");
+
+    expect(result).toEqual([]);
+  });
+
+  it("returns [] for an empty result set", async () => {
+    chain.returns.mockResolvedValueOnce({ data: [], error: null });
+
+    const result = await getAdminRecentBookings(chain as never, 6, "en");
+
+    expect(result).toEqual([]);
+  });
+
+  it("maps completed/pending/unrecognized statuses to their progress percentages and falls back to em-dash for missing fields", async () => {
+    const createdAt = "2026-06-15T10:00:00.000Z";
+    chain.returns.mockResolvedValueOnce({
+      data: [
+        {
+          id: "aaaaaaaa-0000-0000-0000-000000000000",
+          session_type: null,
+          amount_usd: 10,
+          status: "completed",
+          created_at: createdAt,
+          student: null,
+        },
+        {
+          id: "bbbbbbbb-0000-0000-0000-000000000000",
+          session_type: "hifz",
+          amount_usd: 10,
+          status: "pending",
+          created_at: createdAt,
+          student: { full_name: "Student Two" },
+        },
+        {
+          id: "cccccccc-0000-0000-0000-000000000000",
+          session_type: "hifz",
+          amount_usd: 10,
+          status: "no_show",
+          created_at: createdAt,
+          student: { full_name: "Student Three" },
+        },
+      ],
+      error: null,
+    });
+
+    const result = await getAdminRecentBookings(chain as never, 6, "en");
+
+    expect(result).toEqual([
+      {
+        id: "AAAAAA",
+        subject: "—",
+        date: formatDate(createdAt, "en"),
+        progress: 100,
+        assignee: "—",
+        view: "view",
+      },
+      {
+        id: "BBBBBB",
+        subject: "hifz",
+        date: formatDate(createdAt, "en"),
+        progress: 30,
+        assignee: "Student Two",
+        view: "view",
+      },
+      {
+        id: "CCCCCC",
+        subject: "hifz",
+        date: formatDate(createdAt, "en"),
+        progress: 0,
+        assignee: "Student Three",
+        view: "view",
+      },
+    ]);
   });
 });

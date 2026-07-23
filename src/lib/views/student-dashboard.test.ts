@@ -66,6 +66,7 @@ import {
 } from "@/lib/views/student-dashboard-queries";
 import { logError } from "@/lib/logger";
 import { after } from "next/server";
+import { awardAchievement } from "@/lib/domains/achievements/award";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -545,5 +546,196 @@ describe("studentDashboardView", () => {
       evaluation_type: "weekly",
       created_at: "2026-06-20T00:00:00Z",
     });
+  });
+
+  it("populates the prepaid-hour wallet summary when the student has active lots (spec 038)", async () => {
+    stubCoreHelpers();
+
+    const supabase = makeFlexSupabase({
+      bookings: [
+        { count: 4, error: null },
+        { count: 1, error: null },
+        { data: [], error: null },
+        { count: 0, error: null },
+        { data: [], error: null },
+      ],
+      profiles: [{ data: { full_name: "Yusuf" }, error: null }],
+      subscriptions: [{ count: 0, error: null }],
+      conversations: [{ data: [], error: null }],
+      // student_packages is queried three times: [0] Batch-1 prepaid-hours
+      // HEAD count (isNewStudent guard), [1] active-packages widget (empty),
+      // [2] prepaid-lots (spec 038) — the data under test.
+      student_packages: [
+        { count: 2, error: null },
+        { data: [], error: null },
+        {
+        data: [
+          {
+            id: "lot-old",
+            sessions_total: 10,
+            sessions_used: 10,
+            status: "active",
+            expires_at: "2026-05-01T00:00:00Z",
+            rate_paid_usd: 7,
+            purchased_at: "2026-01-01T00:00:00Z",
+          },
+          {
+            id: "lot-new",
+            sessions_total: 8,
+            sessions_used: 3,
+            status: "active",
+            expires_at: "2026-09-01T00:00:00Z",
+            rate_paid_usd: 6.5,
+            purchased_at: "2026-05-01T00:00:00Z",
+          },
+          {
+            // A second lot with hours left AND a valid expiry, earlier than
+            // lot-new's — makes the nearest-expiry candidate list length 2+
+            // so the `.sort()` comparator actually runs (not just `.filter`).
+            id: "lot-soonest",
+            sessions_total: 6,
+            sessions_used: 2,
+            status: "active",
+            expires_at: "2026-07-01T00:00:00Z",
+            rate_paid_usd: 8,
+            purchased_at: "2026-06-01T00:00:00Z",
+          },
+          {
+            // Has hours left but no expiry date set — must be excluded from
+            // the nearest-expiry candidates by the `l.lot.expires_at` half
+            // of the filter's `&&`, not just the `remaining > 0` half.
+            id: "lot-no-expiry",
+            sessions_total: 4,
+            sessions_used: 1,
+            status: "active",
+            expires_at: null,
+            rate_paid_usd: 5,
+            purchased_at: "2026-04-01T00:00:00Z",
+          },
+        ],
+        error: null,
+      }],
+      prepaid_hours_events: [{
+        data: [
+          { event_type: "purchase", hours_delta: 8, created_at: "2026-05-01T00:00:00Z" },
+          { event_type: "spend", hours_delta: -3, created_at: "2026-06-01T00:00:00Z" },
+        ],
+        error: null,
+      }],
+      student_progress: [{ data: null, error: null }],
+      session_evaluations: [{ data: null, error: null }],
+      achievements: [{ data: [], error: null }],
+      homework_assignments: [{ data: [], error: null }],
+    });
+
+    const result = await studentDashboardView(supabase, STUDENT_ID, BASE_OPTS);
+
+    // lot-old is fully used (remaining=0); lot-no-expiry has hours left but
+    // no expiry date — both excluded from the nearest-expiry candidates.
+    // lot-soonest and lot-new both qualify (hours left + valid expiry),
+    // exercising the candidate-list `.sort()`: the EARLIER one (lot-soonest)
+    // wins nearestExpiry, not just whichever lot appears first in the array.
+    // All four lots are still listed, sorted newest-purchased-first;
+    // balanceHours sums remaining across all four.
+    expect(result.data.prepaidWallet).toEqual({
+      balanceHours: 12,
+      nearestExpiry: "2026-07-01T00:00:00Z",
+      lots: [
+        {
+          id: "lot-soonest",
+          sessionsTotal: 6,
+          sessionsUsed: 2,
+          remaining: 4,
+          expiresAt: "2026-07-01T00:00:00Z",
+          ratePaidUsd: 8,
+          purchasedAt: "2026-06-01T00:00:00Z",
+        },
+        {
+          id: "lot-new",
+          sessionsTotal: 8,
+          sessionsUsed: 3,
+          remaining: 5,
+          expiresAt: "2026-09-01T00:00:00Z",
+          ratePaidUsd: 6.5,
+          purchasedAt: "2026-05-01T00:00:00Z",
+        },
+        {
+          id: "lot-no-expiry",
+          sessionsTotal: 4,
+          sessionsUsed: 1,
+          remaining: 3,
+          expiresAt: null,
+          ratePaidUsd: 5,
+          purchasedAt: "2026-04-01T00:00:00Z",
+        },
+        {
+          id: "lot-old",
+          sessionsTotal: 10,
+          sessionsUsed: 10,
+          remaining: 0,
+          expiresAt: "2026-05-01T00:00:00Z",
+          ratePaidUsd: 7,
+          purchasedAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+      history: [
+        { eventType: "purchase", hoursDelta: 8, createdAt: "2026-05-01T00:00:00Z" },
+        { eventType: "spend", hoursDelta: -3, createdAt: "2026-06-01T00:00:00Z" },
+      ],
+    });
+  });
+
+  it("logs (never throws) when the fire-and-forget streak-badge award rejects", async () => {
+    stubCoreHelpers();
+    vi.mocked(getStudentStreak).mockResolvedValue({
+      streak: 35, // ≥30 and ≥7 → both badges fire
+      weeklyMinutes: 200,
+      weeklyDelta: 60,
+      loggedToday: true,
+    } as never);
+    // Production code passes `after()` a fire-and-forget callback it never
+    // awaits — invoke it synchronously here so the test can observe the
+    // award + its `.catch()` error handler, instead of leaving them
+    // permanently dead code under the mock's default no-op.
+    vi.mocked(after).mockImplementation(((cb: () => void) => cb()) as never);
+    vi.mocked(awardAchievement).mockRejectedValue(new Error("award insert failed"));
+
+    const supabase = makeFlexSupabase({
+      bookings: [
+        { count: 8, error: null },
+        { count: 3, error: null },
+        { data: [], error: null },
+        { count: 0, error: null },
+        { data: [], error: null },
+      ],
+      profiles: [{ data: { full_name: "Streaker" }, error: null }],
+      subscriptions: [{ count: 0, error: null }],
+      conversations: [{ data: [], error: null }],
+      student_packages: [{ count: 0, error: null }, { data: [], error: null }, { data: [], error: null }],
+      prepaid_hours_events: [{ data: [], error: null }],
+      student_progress: [{ data: null, error: null }],
+      session_evaluations: [{ data: null, error: null }],
+      achievements: [{ data: [], error: null }],
+      homework_assignments: [{ data: [], error: null }],
+    });
+
+    await studentDashboardView(supabase, STUDENT_ID, BASE_OPTS);
+    // Flush the microtask queue so the fire-and-forget .catch() handlers run
+    // before asserting on their side effect.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(vi.mocked(after)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(awardAchievement)).toHaveBeenCalledWith(
+      STUDENT_ID, "streak_30", { streak: 35 },
+    );
+    expect(vi.mocked(awardAchievement)).toHaveBeenCalledWith(
+      STUDENT_ID, "streak_7", { streak: 35 },
+    );
+    expect(vi.mocked(logError)).toHaveBeenCalledWith(
+      "streak_30 award failed", expect.any(Error), { tag: "achievements" },
+    );
+    expect(vi.mocked(logError)).toHaveBeenCalledWith(
+      "streak_7 award failed", expect.any(Error), { tag: "achievements" },
+    );
   });
 });
