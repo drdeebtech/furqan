@@ -123,7 +123,11 @@ describe("POST /api/paypal/webhook — characterization (spec 039 2b)", () => {
     expect(mockGrant).not.toHaveBeenCalled();
   });
 
-  it("2. verifier unreachable (verify helper rejects) → fail-closed non-2xx, zero DB writes", async () => {
+  it("2. returns 503 when signature verification is unavailable (helper rejects — treated as config error)", async () => {
+    // route.ts documents that verifyPayPalWebhookSignature throws ONLY on a
+    // config problem (missing webhook id / api base), so any rejection here
+    // — including a genuinely unreachable PayPal endpoint — is mapped to the
+    // same 503 "not configured" response, not a distinct network-error path.
     mockVerify.mockRejectedValue(new Error("PayPal verify endpoint unreachable"));
 
     const res = await POST(makeReq(CAPTURE_EVENT));
