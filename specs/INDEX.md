@@ -49,6 +49,7 @@
 | [039-shannon-audit-remediation](./039-shannon-audit-remediation/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 | [040-stripe-connect-payouts](./040-stripe-connect-payouts/spec.md) | Planned | `feat/040-stripe-connect-payouts` | _(pending)_ |
 | [041-quran-com-deeplink](./041-quran-com-deeplink/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [042-session-recordings](./042-session-recordings/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
