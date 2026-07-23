@@ -147,3 +147,30 @@ export async function requireAdminForApi(): Promise<
     throw e;
   }
 }
+
+/**
+ * API-route wrapper around `requireRole`. Same contract as
+ * `requireAdminForApi` — returns the authed user (with role narrowed to the
+ * input set), or a NextResponse to short-circuit the handler on auth
+ * failure.
+ *
+ *   const g = await requireRoleForApi(["teacher", "admin"]);
+ *   if (g instanceof NextResponse) return g;
+ *   // g.id / g.role are now available
+ */
+export async function requireRoleForApi(
+  roles: UserRole | UserRole[],
+): Promise<NextResponse | { id: string; role: UserRole }> {
+  const allowed: readonly UserRole[] = Array.isArray(roles) ? roles : [roles];
+  try {
+    return await requireRole(allowed);
+  } catch (e) {
+    if (e instanceof UnauthenticatedError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (e instanceof ForbiddenError) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    throw e;
+  }
+}

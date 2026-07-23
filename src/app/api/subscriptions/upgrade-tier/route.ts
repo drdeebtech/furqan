@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireRole } from "@/lib/auth/require-admin";
+import { requireRoleForApi } from "@/lib/auth/require-admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
-import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { canUpgradeImmediately, scheduleRenewalChange } from "@/lib/domains/catalog/tier-changes";
@@ -36,18 +35,9 @@ const Body = z.object({
  * Auth: student role only. Subscription ownership verified by student_id = userId.
  */
 export async function POST(request: Request) {
-  let userId: string;
-  try {
-    ({ id: userId } = await requireRole("student"));
-  } catch (e) {
-    if (e instanceof UnauthenticatedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e instanceof ForbiddenError) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    throw e;
-  }
+  const g = await requireRoleForApi("student");
+  if (g instanceof NextResponse) return g;
+  const userId = g.id;
 
   // Per-user rate limit (fix #4): cap upgrade attempts so a script cannot spam
   // always_invoice proration invoices. Fail-open — a limiter outage must never

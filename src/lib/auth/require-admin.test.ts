@@ -88,7 +88,7 @@ describe("UnauthenticatedError", () => {
 
 // Static import — vi.mock calls above are hoisted by Vitest so mocks are
 // in place before this module is evaluated.
-import { requireAdmin, requireAdminForApi, requireRole } from "./require-admin";
+import { requireAdmin, requireAdminForApi, requireRole, requireRoleForApi } from "./require-admin";
 import { createClient } from "@/lib/supabase/server";
 
 beforeEach(() => {
@@ -204,5 +204,48 @@ describe("requireAdminForApi", () => {
     vi.mocked(createClient).mockRejectedValueOnce(new TypeError("db pool exhausted"));
 
     await expect(requireAdminForApi()).rejects.toThrow(TypeError);
+  });
+});
+
+describe("requireRoleForApi", () => {
+  it("returns NextResponse 401 when there is no session", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    const result = await requireRoleForApi("student");
+    expect((result as unknown as { body: unknown; init: unknown }).body).toEqual({ error: "Unauthorized" });
+    expect((result as unknown as { body: unknown; init: { status: number } }).init.status).toBe(401);
+  });
+
+  it("returns NextResponse 403 when the role doesn't match", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "teacher-9" } }, error: null });
+    mockSingle.mockResolvedValue({ data: { role: "teacher" }, error: null });
+
+    const result = await requireRoleForApi("student");
+    expect((result as unknown as { body: unknown; init: unknown }).body).toEqual({ error: "Forbidden" });
+    expect((result as unknown as { body: unknown; init: { status: number } }).init.status).toBe(403);
+  });
+
+  it("returns { id, role } narrowed to the matched role for a single-role call", async () => {
+    const USER_ID = "student-1";
+    mockGetUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
+    mockSingle.mockResolvedValue({ data: { role: "student" }, error: null });
+
+    const result = await requireRoleForApi("student");
+    expect(result).toEqual({ id: USER_ID, role: "student" });
+  });
+
+  it("returns { id, role } narrowed to the matched role for a multi-role call", async () => {
+    const USER_ID = "teacher-9";
+    mockGetUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
+    mockSingle.mockResolvedValue({ data: { role: "teacher" }, error: null });
+
+    const result = await requireRoleForApi(["teacher", "admin"]);
+    expect(result).toEqual({ id: USER_ID, role: "teacher" });
+  });
+
+  it("re-throws unexpected errors (not auth-related)", async () => {
+    vi.mocked(createClient).mockRejectedValueOnce(new TypeError("db pool exhausted"));
+
+    await expect(requireRoleForApi("student")).rejects.toThrow(TypeError);
   });
 });

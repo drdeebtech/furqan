@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe/client";
-import { requireRole } from "@/lib/auth/require-admin";
-import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+import { requireRoleForApi } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 
 export const maxDuration = 60;
@@ -18,18 +17,9 @@ export const maxDuration = 60;
  */
 export async function POST() {
   // ── Auth gate (Principle IV) ──────────────────────────────────────────────
-  let userId: string;
-  try {
-    ({ id: userId } = await requireRole(["student", "admin"]));
-  } catch (e) {
-    if (e instanceof UnauthenticatedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e instanceof ForbiddenError) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    throw e;
-  }
+  const g = await requireRoleForApi(["student", "admin"]);
+  if (g instanceof NextResponse) return g;
+  const userId = g.id;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!appUrl) {

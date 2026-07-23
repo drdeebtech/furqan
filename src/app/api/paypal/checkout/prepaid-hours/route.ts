@@ -4,12 +4,11 @@ import { createPayPalOrder, isPayPalConfigured } from "@/lib/paypal/client";
 import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
-import { getSetting, isFeatureEnabled } from "@/lib/settings";
+import { isFeatureEnabled } from "@/lib/settings";
 import {
-  PREPAID_DEFAULT_RATE_USD as DEFAULT_RATE_USD,
-  PREPAID_DEFAULT_CUSTOM_MIN as DEFAULT_CUSTOM_MIN,
-  PREPAID_DEFAULT_CUSTOM_MAX as DEFAULT_CUSTOM_MAX,
-} from "@/lib/domains/billing/prepaid-defaults";
+  resolvePrepaidQuote,
+  PrepaidHoursOutOfRangeError,
+} from "@/lib/domains/billing/prepaid-quote";
 import {
   PAYMENTS_UNAVAILABLE_MESSAGE,
   PAYMENTS_UNAVAILABLE_STATUS,
@@ -47,46 +46,13 @@ const PrepaidCheckoutSchema = z
 
 type PrepaidCheckout = z.infer<typeof PrepaidCheckoutSchema>;
 
-// ── Setting readers ──────────────────────────────────────────────────────────
-// Same wallet money knobs + same defensive parsing as the Stripe prepaid route.
-// Missing/blank/non-finite → seeded default. The webhook (2b) re-derives the
-// grant from the FROZEN rate stamped into PayPal `custom_id`, NOT from a
-// re-read of the setting, so a mid-flight admin rate change cannot desync the
-// charged amount from the granted lot's rate_paid_usd (R1).
-
-// Defaults are imported from @/lib/domains/billing/prepaid-defaults. This is
-// the CHARGE path — a stale local copy bills the wrong amount.
-
-async function readRateUsd(): Promise<number> {
-  const raw = await getSetting("prepaid_hours_rate_usd");
-  if (raw === null || raw === undefined || raw.trim() === "") return DEFAULT_RATE_USD;
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0) return DEFAULT_RATE_USD;
-  return Math.round(n * 100) / 100;
-}
-
-async function readCustomBounds(): Promise<{ min: number; max: number }> {
-  const readMin = await getSetting("prepaid_hours_custom_min");
-  const readMax = await getSetting("prepaid_hours_custom_max");
-  const min = (() => {
-    if (readMin === null || readMin === undefined || readMin.trim() === "") return DEFAULT_CUSTOM_MIN;
-    const n = Number(readMin);
-    if (!Number.isFinite(n) || n < 1) return DEFAULT_CUSTOM_MIN;
-    return Math.floor(n);
-  })();
-  const max = (() => {
-    if (readMax === null || readMax === undefined || readMax.trim() === "") return DEFAULT_CUSTOM_MAX;
-    const n = Number(readMax);
-    if (!Number.isFinite(n) || n < min) return DEFAULT_CUSTOM_MAX;
-    return Math.floor(n);
-  })();
-  // Admin can set min > 100 while max is missing/invalid → the IIFE above
-  // would yield max=DEFAULT_CUSTOM_MAX=100 < min, rejecting every request
-  // ("between 200 and 100"). Reset both to defaults if the final range is
-  // inverted, so checkout never hard-fails on a misconfigured bound.
-  if (max < min) return { min: DEFAULT_CUSTOM_MIN, max: DEFAULT_CUSTOM_MAX };
-  return { min, max };
-}
+// The rate/bounds parsing (defensive parse + inverted-bounds RESET) and the
+// amountCents computation live in resolvePrepaidQuote
+// (@/lib/domains/billing/prepaid-quote), shared with the Stripe prepaid
+// route. The webhook (2b) re-derives the grant from the FROZEN rate stamped
+// into PayPal `custom_id`, NOT from a re-read of the setting, so a
+// mid-flight admin rate change cannot desync the charged amount from the
+// granted lot's rate_paid_usd (R1).
 
 /**
  * POST /api/paypal/checkout/prepaid-hours
@@ -137,22 +103,25 @@ export async function POST(request: Request) {
     );
   }
 
-  // ── Rate + bounds from settings (server-only; FR-002) ─────────────────────
-  const rateUsd = await readRateUsd();
-  const { min, max } = await readCustomBounds();
-
-  if (body.hours < min || body.hours > max) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Hours must be between ${min} and ${max}`,
-      },
-      { status: 422 },
-    );
+  // ── Rate + bounds + amount (server-only; FR-002) ──────────────────────────
+  let rateUsd: number;
+  let amountCents: number;
+  try {
+    ({ rateUsd, amountCents } = await resolvePrepaidQuote(body.hours));
+  } catch (e) {
+    if (e instanceof PrepaidHoursOutOfRangeError) {
+      return NextResponse.json(
+        { success: false, error: e.message },
+        { status: 422 },
+      );
+    }
+    throw e;
   }
 
-  // ── Server-side amount computation (FR-002: never trust client amount) ────
-  const amountUsd = Math.round(body.hours * rateUsd * 100) / 100;
+  // PayPal wants a dollar amount, not cents — Stripe keeps amountCents,
+  // PayPal derives its dollar figure from the SAME resolved amount so both
+  // providers charge to the exact same cent.
+  const amountUsd = amountCents / 100;
 
   // ── PayPal configuration gates ─────────────────────────────────────────────
   if (!isPayPalConfigured()) {
