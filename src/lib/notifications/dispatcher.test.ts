@@ -5,13 +5,14 @@ vi.mock("server-only", () => ({}));
 // ─── Hoisted mock state ───────────────────────────────────────────────────────
 // vi.mock factories are hoisted above imports, so any variables they close over
 // must be declared with vi.hoisted() to be available at hoist time.
-const { mockInsert, mockMaybeSingle, mockFrom, mockLogError, mockIsInQuietHours } = vi.hoisted(() => {
+const { mockInsert, mockMaybeSingle, mockFrom, mockLogError, mockIsInQuietHours, mockCreateAdminClient } = vi.hoisted(() => {
   const mockInsert = vi.fn();
   const mockMaybeSingle = vi.fn();
   const mockFrom = vi.fn();
   const mockLogError = vi.fn();
   const mockIsInQuietHours = vi.fn();
-  return { mockInsert, mockMaybeSingle, mockFrom, mockLogError, mockIsInQuietHours };
+  const mockCreateAdminClient = vi.fn();
+  return { mockInsert, mockMaybeSingle, mockFrom, mockLogError, mockIsInQuietHours, mockCreateAdminClient };
 });
 
 // ─── Mock next/server ────────────────────────────────────────────────────────
@@ -20,8 +21,11 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 
 // ─── Supabase chainable mock ─────────────────────────────────────────────────
 vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => ({ from: mockFrom }),
+  createAdminClient: mockCreateAdminClient,
 }));
+
+// Set up default return value for createAdminClient
+mockCreateAdminClient.mockReturnValue({ from: mockFrom });
 
 // ─── Logger mock ─────────────────────────────────────────────────────────────
 vi.mock("@/lib/logger", () => ({ logError: mockLogError }));
@@ -81,6 +85,7 @@ function setupFrom(
 beforeEach(() => {
   vi.clearAllMocks();
   mockIsInQuietHours.mockReturnValue(false);
+  mockCreateAdminClient.mockReturnValue({ from: mockFrom });
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -301,5 +306,36 @@ describe("notify — optional fields", () => {
     await expect(
       notify({ userId: "u1", type: "payment", title: "تم الدفع" }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("notify never-throw contract", () => {
+  it("resolves (not rejects) when createAdminClient throws", async () => {
+    mockCreateAdminClient.mockImplementation(() => {
+      throw new Error("SUPABASE_SERVICE_ROLE_KEY missing");
+    });
+    await expect(
+      notify({ userId: "u1", type: "system", title: "t" }),
+    ).resolves.toBeUndefined();
+    expect(mockLogError).toHaveBeenCalledWith(
+      "notify: dispatch failed",
+      expect.any(Error),
+      expect.objectContaining({ tag: "dispatcher" }),
+    );
+  });
+
+  it("resolves when the preferences read rejects", async () => {
+    // Wire the from() chain first so the test exercises the real path
+    setupFrom(null);
+    // Now make maybeSingle reject with a network error
+    mockMaybeSingle.mockRejectedValue(new Error("Network timeout"));
+    await expect(
+      notify({ userId: "u1", type: "system", title: "t" }),
+    ).resolves.toBeUndefined();
+    expect(mockLogError).toHaveBeenCalledWith(
+      "notify: dispatch failed",
+      expect.any(Error),
+      expect.objectContaining({ tag: "dispatcher" }),
+    );
   });
 });
