@@ -14,6 +14,7 @@ FURQAN Academy — online Quran-memorization platform (furqan.today).
 (go-live owner-gated), teacher marketplace public, payouts dormant behind a cutover date.
 
 ## Stack
+
 - **Next.js 16.2.x** (App Router, Turbopack; modified/canary build — check `node_modules/next/dist/docs/` before using an unfamiliar API) · **React 19** · **TypeScript 5 (strict)**
 - **Supabase** (Postgres, Auth, RLS, Storage) · `@supabase/ssr`
 - **Stripe** (subscriptions, single sessions, Connect payouts — dormant) · PayPal (recurring epic pending owner gate)
@@ -24,6 +25,7 @@ FURQAN Academy — online Quran-memorization platform (furqan.today).
 - **Vercel** (furqan.today; `origin/staging` = main + Basic-auth gate on a separate Supabase ref)
 
 ## Roles (3)
+
 Per ADR-0003 the moderator role was dropped; its surfaces are admin-owned.
 
 - **student** — browse/subscribe, book sessions, join video, track hifz progress, follow-up, messages
@@ -43,17 +45,20 @@ Key invariants:
 - **Connect payouts** (spec 040) are fully wired but dormant until `connect_cutover_date` is set.
 
 ## Data Layer
+
 - `supabase/migrations/` — remote pg_dump baseline + timestamped migrations (never push the baseline; archive in `supabase/migrations_archive/`). Contract: `AGENTS.md` §4.
 - `src/types/database.ts` — **hand-corrected** types layer (spec 026), NOT a stale duplicate of `src/types/supabase.generated.ts`. Never blind-regenerate; read only the alias section at the end.
 - Regenerate after a migration: `npm run db:types` (guarded by the `db-types-fresh` CI workflow).
 
 ## Events & Automation
+
 - Typed `FurqanEvent` names from `src/lib/automation/emit.ts` — no raw strings. Taxonomy in `EVENT_CATALOG.md`; state machines in `LIFECYCLES.md`; incident playbooks in `EXCEPTION_PLAYBOOKS.md`.
 - n8n workflow registry: `AUTOMATION_REGISTRY.md` (audited by `scripts/n8n-audit.mjs`). Status as of the 2026-07 audit: healthy — most workflows green, the amber set is event-driven idle-by-design, and the dark set sits behind the `renewal_campaigns_enabled` flag.
 - AI workflows (spec 028) ship flag-gated with an eval gate (`ai_output_review` + `/admin/ai-review`).
 
 ## File Structure (key paths)
-```
+
+```text
 src/app/admin/**                 Admin dashboard (incl. control-tower, n8n, ai-review, tour)
 src/app/teacher/**               Teacher dashboard
 src/app/student/**               Student dashboard
@@ -93,6 +98,7 @@ Shannon audit remediation (039), Stripe Connect payouts — built, dormant (040)
 Verified Uthmani ayah rendering (KFGQPC module). Hifz price-ladder fix (#755).
 
 ## Remaining Work (owner-gated unless noted)
+
 1. **Stripe go-live** — runbook exists; only account-bound prep is the six `subscription_plans` placeholder price IDs. Run from `main`.
 2. **PayPal recurring** (epic #756) — Phase 0 (#757) is a blocking owner gate that can void the epic. `/subscribe` returning 503 for PayPal is correct behavior, not a bug.
 3. **Connect payouts go-live** (spec 040) — set `connect_cutover_date` + owner Stripe checklist.
@@ -100,6 +106,7 @@ Verified Uthmani ayah rendering (KFGQPC module). Hifz price-ladder fix (#755).
 5. **Refund/failed-payment policy build-out** — owner decided: refund = take back unused + cancel plan; failed payment = block bookings immediately. Separate DB-proven PRs.
 
 ## Documentation Index
+
 | File | Purpose |
 |------|---------|
 | `AGENTS.md` (= `CLAUDE.md`) | Agent contract — load-bearing rules only |
