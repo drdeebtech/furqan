@@ -21,6 +21,7 @@ import "server-only";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { assertPrepaidGrantValid } from "@/lib/domains/billing/prepaid-guard";
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -150,49 +151,36 @@ export async function grantPaypalPrepaidCapture(
     return { ok: false, reason: "bad custom_id" };
   }
 
-  // 2. TAMPER GUARD — charged amount must equal hours × rate (cents-equal).
-  //    This is the critical reconciliation: the custom_id was stamped at
-  //    checkout (signature-verified by PayPal), and amountUsd comes from
-  //    PayPal's capture API. A mismatch means either the buyer tampered, the
-  //    rate changed mid-flight, or PayPal mis-reported — NEVER grant.
-  const expectedUsd = Math.round(parsed.hours * parsed.rate * 100) / 100;
-  if (Math.round(amountUsd * 100) !== Math.round(expectedUsd * 100)) {
-    logError(
-      "paypal-prepaid grant: amount mismatch (tamper/price-change)",
-      new Error("amount-mismatch"),
-      {
-        tag: "paypal-prepaid",
-        capture_id: captureId,
-        student_id: parsed.studentId,
-        hours: parsed.hours,
-        rate_usd: parsed.rate,
-        expected_usd: expectedUsd,
-        received_usd: amountUsd,
-      },
-    );
-    return { ok: false, reason: "amount mismatch" };
-  }
-
-  // 3. ownership — the student_id must resolve to a real profile with role
-  //    'student'. A bogus/deleted id or a non-student role fails closed.
-  const { data: profile, error: profileErr } = await admin
-    .from("profiles")
-    .select("id, role")
-    .eq("id", parsed.studentId)
-    .maybeSingle<{ id: string; role: string | null }>();
-  if (profileErr) {
-    logError("paypal-prepaid grant: profile lookup failed", profileErr, {
-      tag: "paypal-prepaid",
-      capture_id: captureId,
-      student_id: parsed.studentId,
-    });
-    return { ok: false, reason: "profile lookup failed" };
-  }
-  if (!profile) {
-    return { ok: false, reason: "no profile" };
-  }
-  if (profile.role !== "student") {
-    return { ok: false, reason: "not a student" };
+  // 2 + 3. TAMPER GUARD + ownership — shared with the Stripe rail via
+  // assertPrepaidGrantValid (amount BEFORE ownership, both BEFORE the RPC).
+  // The custom_id was stamped at checkout (signature-verified by PayPal) and
+  // amountUsd comes from PayPal's capture API — a mismatch means either the
+  // buyer tampered, the rate changed mid-flight, or PayPal mis-reported.
+  const chargedCents = Math.round(amountUsd * 100);
+  const guard = await assertPrepaidGrantValid(admin, {
+    studentId: parsed.studentId,
+    hours: parsed.hours,
+    rate: parsed.rate,
+    chargedCents,
+  });
+  if (!guard.ok) {
+    if (guard.reason.startsWith("amount mismatch")) {
+      logError(
+        "paypal-prepaid grant: amount mismatch (tamper/price-change)",
+        new Error("amount-mismatch"),
+        {
+          tag: "paypal-prepaid",
+          capture_id: captureId,
+          student_id: parsed.studentId,
+          hours: parsed.hours,
+          rate_usd: parsed.rate,
+          expected_usd: Math.round(parsed.hours * parsed.rate * 100) / 100,
+          received_usd: amountUsd,
+        },
+      );
+      return { ok: false, reason: "amount mismatch" };
+    }
+    return { ok: false, reason: guard.reason };
   }
 
   // 4. idempotent grant. grant_prepaid_hours is provider-aware: it keys

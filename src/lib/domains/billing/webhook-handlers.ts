@@ -32,6 +32,7 @@ import {
   type StripeSubscriptionSnapshot,
 } from "@/lib/domains/billing/subscriptions";
 import { grantCycle, buildCycleKey } from "@/lib/domains/billing/orchestrate";
+import { assertPrepaidGrantValid } from "@/lib/domains/billing/prepaid-guard";
 import { BillingEvents } from "@/lib/domains/billing/events";
 import {
   applyImmediateUpgradeGrant,
@@ -963,56 +964,33 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
     return;
   }
 
-  // H2 amount reconciliation (fail-closed on tampering). pi.amount_received is
-  // in cents; the expected total is hours × per-hour rate × 100. A 1-cent
-  // mismatch is rejected — the checkout route rounds cleanly so any drift is a
-  // real discrepancy, not a rounding artifact.
-  const expectedAmountCents = Math.round(hours * rateUsd * 100);
+  // H2 tamper guard + ownership check — shared with the PayPal rail via
+  // assertPrepaidGrantValid (same fail-closed reconciliation order: amount
+  // BEFORE ownership, both BEFORE any grant RPC). pi.amount_received is in
+  // cents; the checkout route rounds cleanly so any drift is a real
+  // discrepancy, not a rounding artifact.
   const receivedCents = pi.amount_received ?? 0;
-  if (receivedCents !== expectedAmountCents) {
-    logError(
-      "stripe-webhook: prepaid_hours amount mismatch (tamper/price-change)",
-      new Error("amount-mismatch"),
-      {
-        tag: "stripe-webhook",
-        event_id: ctx.event.id,
-        pi_id: pi.id,
-        expected_cents: expectedAmountCents,
-        received_cents: receivedCents,
-      },
-    );
-    await markEvent(
-      ctx,
-      "failed",
-      `amount mismatch: expected ${expectedAmountCents}, received ${receivedCents}`,
-    );
-    return;
-  }
-
-  // H2 ownership: the student_id stamped at checkout must resolve to a real
-  // profile. The metadata was set by OUR checkout route and signature-verified
-  // by Stripe, so a bogus id here means either a deleted account or a
-  // misconfiguration — fail-closed either way. We do NOT auto-create accounts.
-  const { data: profile, error: profileErr } = await ctx.admin
-    .from("profiles")
-    .select("id, role")
-    .eq("id", studentId)
-    .maybeSingle<{ id: string; role: string | null }>();
-  if (profileErr) {
-    logError("stripe-webhook: prepaid_hours profile lookup failed", profileErr, {
-      tag: "stripe-webhook",
-      pi_id: pi.id,
-      student_id: studentId,
-    });
-    await markEvent(ctx, "failed", "profile lookup failed");
-    return;
-  }
-  if (!profile) {
-    await markEvent(ctx, "failed", `no profile for student_id ${studentId} — cannot grant`);
-    return;
-  }
-  if (profile.role !== "student") {
-    await markEvent(ctx, "failed", `student_id ${studentId} role is ${profile.role}, not student`);
+  const guard = await assertPrepaidGrantValid(ctx.admin, {
+    studentId,
+    hours,
+    rate: rateUsd,
+    chargedCents: receivedCents,
+  });
+  if (!guard.ok) {
+    if (guard.reason.startsWith("amount mismatch")) {
+      logError(
+        "stripe-webhook: prepaid_hours amount mismatch (tamper/price-change)",
+        new Error("amount-mismatch"),
+        {
+          tag: "stripe-webhook",
+          event_id: ctx.event.id,
+          pi_id: pi.id,
+          expected_cents: Math.round(hours * rateUsd * 100),
+          received_cents: receivedCents,
+        },
+      );
+    }
+    await markEvent(ctx, "failed", guard.reason);
     return;
   }
 
