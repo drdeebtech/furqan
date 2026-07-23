@@ -1,4 +1,5 @@
 import type { ServerClient } from "@/lib/supabase/types";
+import { ayahCount } from "@/lib/quran/ayah-counts";
 import type { RecitationErrorCategory } from "@/lib/views/teacher-insights";
 
 /**
@@ -105,8 +106,9 @@ export async function getStudentSessionPrep(
   for (const r of rows) {
     if (r.note === NO_ERRORS_SENTINEL) continue; // attestation, not a real error
     if (new Date(r.created_at).getTime() < windowStart) continue;
-    if (r.error_type in counts) counts[r.error_type as RecitationErrorCategory] += 1;
-    else counts.other += 1; // defensive: any unknown type folds into "other"
+    if (Object.prototype.hasOwnProperty.call(counts, r.error_type)) {
+      counts[r.error_type as RecitationErrorCategory] += 1;
+    } else counts.other += 1; // defensive: any unknown type folds into "other"
   }
   const topErrorTypes = CATEGORIES
     .map((category) => ({ category, count: counts[category] }))
@@ -122,6 +124,8 @@ export async function getStudentSessionPrep(
   for (const r of rows) {
     if (r.note === NO_ERRORS_SENTINEL) continue;
     if (r.surah_num == null) continue;
+    const surahAyahCount = ayahCount(r.surah_num);
+    if (surahAyahCount == null || r.ayah_num < 1 || r.ayah_num > surahAyahCount) continue;
     const key = `${r.surah_num}:${r.ayah_num}`;
     const prev = ayahCounts.get(key);
     if (prev) prev.count += 1;

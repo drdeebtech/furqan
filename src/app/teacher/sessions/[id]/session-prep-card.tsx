@@ -36,7 +36,7 @@ const EMPTY: StudentSessionPrep = { topErrorTypes: [], repeatOffenderAyahs: [] }
 
 export async function SessionPrepCard({ studentId }: { studentId: string }) {
   const supabase = await createClient();
-  const { data } = await helperOrFail(
+  const { data, failed } = await helperOrFail(
     () => getStudentSessionPrep(supabase, studentId),
     EMPTY,
     { route: "teacher-session", widget: "session-prep" },
@@ -58,11 +58,18 @@ export async function SessionPrepCard({ studentId }: { studentId: string }) {
         </h3>
       </div>
 
-      {!hasErrors && !hasRepeats ? (
+      {failed ? (
         <p className="text-sm text-muted">
           {t(
-            "لا توجد أخطاء مُسجَّلة بعد لهذا الطالب. ستظهر هنا أبرز الأخطاء بمجرد تسجيلها.",
-            "No errors logged for this student yet. Highlights appear here once errors are recorded.",
+            "تعذّر تحميل بؤرة الأخطاء الآن. جرّب تحديث الصفحة.",
+            "Couldn't load session prep right now. Try refreshing.",
+          )}
+        </p>
+      ) : !hasErrors && !hasRepeats ? (
+        <p className="text-sm text-muted">
+          {t(
+            "لا توجد أخطاء بارزة لهذا الطالب حالياً.",
+            "No current focus items for this student.",
           )}
         </p>
       ) : (

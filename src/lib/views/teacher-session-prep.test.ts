@@ -86,6 +86,18 @@ describe("getStudentSessionPrep", () => {
     expect(out.topErrorTypes).toEqual([{ category: "madd", count: 1 }]);
   });
 
+  it("folds inherited object-key error types into other", async () => {
+    chain.returns.mockResolvedValueOnce({
+      data: [
+        { error_type: "constructor", surah_num: 2, ayah_num: 10, note: null, created_at: iso(1) },
+        { error_type: "toString", surah_num: 2, ayah_num: 11, note: null, created_at: iso(2) },
+      ],
+      error: null,
+    });
+    const out = await getStudentSessionPrep(chain as never, STUDENT);
+    expect(out.topErrorTypes).toEqual([{ category: "other", count: 2 }]);
+  });
+
   it("flags repeat-offender ayahs (>=2) ALL-TIME, even across the 90-day boundary", async () => {
     chain.returns.mockResolvedValueOnce({
       data: [
@@ -106,6 +118,25 @@ describe("getStudentSessionPrep", () => {
       { surah: 114, ayah: 6, count: 3 },
       { surah: 2, ayah: 255, count: 2 },
     ]);
+  });
+
+  it("excludes invalid surah:ayah coordinates from the repeat-offender tally", async () => {
+    chain.returns.mockResolvedValueOnce({
+      data: [
+        // 114:7 is out of range and must be dropped even when repeated.
+        { error_type: "madd", surah_num: 114, ayah_num: 7, note: null, created_at: iso(1) },
+        { error_type: "madd", surah_num: 114, ayah_num: 7, note: null, created_at: iso(2) },
+        // Surah 115 is invalid and must also be dropped when repeated.
+        { error_type: "madd", surah_num: 115, ayah_num: 1, note: null, created_at: iso(3) },
+        { error_type: "madd", surah_num: 115, ayah_num: 1, note: null, created_at: iso(4) },
+        // 114:6 is valid and remains a repeat offender.
+        { error_type: "madd", surah_num: 114, ayah_num: 6, note: null, created_at: iso(5) },
+        { error_type: "madd", surah_num: 114, ayah_num: 6, note: null, created_at: iso(6) },
+      ],
+      error: null,
+    });
+    const out = await getStudentSessionPrep(chain as never, STUDENT);
+    expect(out.repeatOffenderAyahs).toEqual([{ surah: 114, ayah: 6, count: 2 }]);
   });
 
   it("drops sentinel and null-surah rows from the repeat-offender tally", async () => {
