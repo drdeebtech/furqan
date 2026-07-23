@@ -6497,6 +6497,10 @@ export type Database = {
         Args: { p_actual_duration: number; p_session_id: string }
         Returns: string
       }
+      enroll_participant: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: undefined
+      }
       get_public_teacher: {
         Args: { p_id: string }
         Returns: {
@@ -6583,6 +6587,10 @@ export type Database = {
       redact_pii: { Args: { payload: Json }; Returns: Json }
       refund_package_session: {
         Args: { p_package_id: string }
+        Returns: boolean
+      }
+      release_participant: {
+        Args: { p_session_id: string; p_user_id: string }
         Returns: boolean
       }
       roster_recent_evaluations: {
