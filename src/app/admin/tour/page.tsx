@@ -34,18 +34,27 @@ export default function AdminTourPage() {
             </p>
 
             <div className="flex flex-wrap gap-1.5">
-              {step.files.map((file) => (
-                <a
-                  key={file}
-                  href={`https://github.com/drdeebtech/furqan/blob/main/${file}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="glass-badge text-xs font-mono px-2 py-0.5 hover:opacity-80 transition-opacity"
-                  dir="ltr"
-                >
-                  {file.split("/").pop()}
-                </a>
-              ))}
+              {step.files.map((file) => {
+                // A trailing slash marks a directory reference (e.g.
+                // "supabase/migrations/"). Directories need GitHub's /tree/ URL
+                // and a real label — file.split("/").pop() alone yields "" here.
+                const isDir = file.endsWith("/");
+                const path = isDir ? file.slice(0, -1) : file;
+                const kind = isDir ? "tree" : "blob";
+                const name = path.split("/").pop() || path;
+                return (
+                  <a
+                    key={file}
+                    href={`https://github.com/drdeebtech/furqan/${kind}/main/${path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="glass-badge text-xs font-mono px-2 py-0.5 hover:opacity-80 transition-opacity"
+                    dir="ltr"
+                  >
+                    {isDir ? `${name}/` : name}
+                  </a>
+                );
+              })}
             </div>
           </div>
         ))}
