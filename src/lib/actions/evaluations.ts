@@ -177,7 +177,13 @@ const createTeacherEvaluationBase = loudAction<z.infer<typeof createTeacherEvalu
       .eq("id", actorId as string)
       .single<{ role: string }>();
 
-    const role = profile?.role === "teacher" ? ("teacher" as const) : ("admin" as const);
+    // Fail closed: an errored/missing re-fetch must never default to
+    // "admin" — that would skip the IDOR relation check below (CodeRabbit
+    // finding on PR #771).
+    if (profile?.role !== "teacher" && profile?.role !== "admin") {
+      throw new UserError("تعذر التحقق من الصلاحية — حاول مرة أخرى");
+    }
+    const role = profile.role === "teacher" ? ("teacher" as const) : ("admin" as const);
 
     await createEvaluationRecord(supabase, {
       studentId: input.studentId,

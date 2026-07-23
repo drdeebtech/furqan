@@ -40,9 +40,14 @@ export async function createEvaluationRecord(
   supabase: ServerClient,
   input: CreateEvaluationInput,
 ): Promise<void> {
-  // Teacher IDOR guard: a teacher may only evaluate students they teach.
-  // Admin has legitimate cross-student standing and skips it.
+  // Teacher IDOR guard: a teacher may only evaluate students they teach,
+  // and only under their own identity — never attribute the row to a
+  // different teacher_id (CodeRabbit finding on PR #771). Admin has
+  // legitimate cross-student/cross-teacher standing and skips both checks.
   if (input.actor.role === "teacher") {
+    if (input.teacherId !== input.actor.id) {
+      throw new UserError("لا يمكنك إنشاء تقييم باسم معلم آخر");
+    }
     const { data: relation } = await supabase
       .from("bookings")
       .select("id")

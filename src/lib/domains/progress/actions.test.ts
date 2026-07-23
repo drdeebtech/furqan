@@ -177,4 +177,22 @@ describe("createEvaluationRecord", () => {
     expect(mockEmitEvent).toHaveBeenCalledTimes(1);
     expect(mockLogError).toHaveBeenCalled();
   });
+
+  it("teacher actor with a valid relation but mismatched teacherId: rejects and never inserts", async () => {
+    const client = createFakeClient({ relation: { id: "rel1" } });
+    const mismatchedInput: CreateEvaluationInput = {
+      ...BASE_INPUT,
+      teacherId: "someone-else",
+      actor: { id: TEACHER_ID, role: "teacher" },
+    };
+
+    await expect(
+      createEvaluationRecord(client as never, mismatchedInput),
+    ).rejects.toThrow(UserError);
+    await expect(
+      createEvaluationRecord(client as never, mismatchedInput),
+    ).rejects.toThrow("لا يمكنك إنشاء تقييم باسم معلم آخر");
+
+    expect(client.insertMock).not.toHaveBeenCalled();
+  });
 });
