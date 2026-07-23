@@ -7,12 +7,14 @@ vi.mock("@/lib/domains/package/ledger", () => ({ selectActivePackage: vi.fn() })
 vi.mock("../agreement-gate", () => ({ teacherAgreementOk: vi.fn() }));
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 import { selectActivePackage } from "@/lib/domains/package/ledger";
 import { teacherAgreementOk } from "../agreement-gate";
 import { createBooking, updateBookingStatus } from "../actions";
 import {
   BookingConflictError,
   BookingNotFoundError,
+  BookingStatusUpdateError,
   type CreateBookingInput,
 } from "../types";
 import type { SessionType } from "@/types/database";
@@ -26,23 +28,83 @@ import type { SessionType } from "@/types/database";
 
 // ── Supabase mock ───────────────────────────────────────────────────────────
 // A chainable, awaitable query-builder. Chain methods return the builder;
-// terminal `.single()/.maybeSingle()/.returns()` and `await` resolve the
-// per-table result `{ data, error }`.
-function makeQB({ data = null, error = null }: { data?: unknown; error?: unknown }) {
-  const res = { data, error };
+// `.single()/.maybeSingle()/.returns()` resolve the pre-read/insert shape
+// (`{ data, error }`, `data` a single row or null). A bare `await` on the
+// builder (no `.single()` — the conditional-UPDATE `.select("id")` path and
+// the audit-row insert) resolves the list shape (`{ data, error }`, `data`
+// an array) via `.then` — mirrors the two different terminal shapes
+// `updateBookingStatus` actually reads post-#770 (row-array from the
+// conditional UPDATE vs. a single row from the pre-read / re-read).
+function makeQB(
+  {
+    data = null,
+    error = null,
+    count,
+    updateRows,
+    updateError = null,
+  }: {
+    data?: unknown;
+    error?: unknown;
+    count?: number;
+    updateRows?: unknown[];
+    updateError?: unknown;
+  },
+  // Shared (not copied) across every `.from(table)` call for this table
+  // within one test, so successive `.single()` calls — pre-read, then a
+  // later re-read — pop one result each instead of each new query-builder
+  // instance re-reading from the start of a fresh copy.
+  sharedSingleQueue?: Array<{ data?: unknown; error?: unknown }>,
+) {
+  const singleRes = { data, error };
+  const listRes = {
+    data: updateRows !== undefined ? updateRows : data ? [data] : [],
+    error: updateError,
+    count: count ?? null,
+  };
+  const nextSingle = () => {
+    if (sharedSingleQueue && sharedSingleQueue.length > 0) {
+      const n = sharedSingleQueue.shift()!;
+      return { data: n.data ?? null, error: n.error ?? null };
+    }
+    return singleRes;
+  };
   const qb: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "in", "order", "limit", "insert", "update"]) {
+  for (const m of ["select", "eq", "neq", "in", "order", "limit", "insert", "update"]) {
     qb[m] = vi.fn(() => qb);
   }
-  qb.single = vi.fn(() => Promise.resolve(res));
-  qb.maybeSingle = vi.fn(() => Promise.resolve(res));
-  qb.returns = vi.fn(() => Promise.resolve(res));
-  qb.then = (resolve: (v: typeof res) => unknown) => Promise.resolve(res).then(resolve);
+  qb.single = vi.fn(() => Promise.resolve(nextSingle()));
+  qb.maybeSingle = vi.fn(() => Promise.resolve(nextSingle()));
+  qb.returns = vi.fn(() => Promise.resolve(singleRes));
+  qb.then = (resolve: (v: typeof listRes) => unknown) => Promise.resolve(listRes).then(resolve);
   return qb;
 }
 
-function makeAdmin(byTable: Record<string, { data?: unknown; error?: unknown }>) {
-  return { from: vi.fn((table: string) => makeQB(byTable[table] ?? { data: null, error: null })) };
+function makeAdmin(
+  byTable: Record<
+    string,
+    {
+      data?: unknown;
+      error?: unknown;
+      count?: number;
+      updateRows?: unknown[];
+      updateError?: unknown;
+      // Successive `.single()`/`.maybeSingle()` calls across ALL `.from(table)`
+      // invocations for this table pop one result each (pre-read, then a
+      // later re-read) before falling back to `{ data, error }`. Only needed
+      // for the race-then-re-read scenario in `updateBookingStatus`.
+      singleSequence?: Array<{ data?: unknown; error?: unknown }>;
+    }
+  >,
+) {
+  const queuesByTable: Record<string, Array<{ data?: unknown; error?: unknown }>> = {};
+  for (const [table, cfg] of Object.entries(byTable)) {
+    if (cfg.singleSequence) queuesByTable[table] = [...cfg.singleSequence];
+  }
+  return {
+    from: vi.fn((table: string) =>
+      makeQB(byTable[table] ?? { data: null, error: null }, queuesByTable[table]),
+    ),
+  };
 }
 
 const baseInput = (over: Partial<CreateBookingInput> = {}): CreateBookingInput => ({
@@ -148,6 +210,126 @@ describe("createBooking", () => {
     );
     await expect(createBooking(baseInput())).rejects.toBeInstanceOf(BookingConflictError);
   });
+
+  it("usePrepaidHours with a non-60-minute duration: rejects duration_min server-side", async () => {
+    await expect(
+      createBooking(baseInput({ usePrepaidHours: true, durationMin: 45 })),
+    ).rejects.toMatchObject({ field: "duration_min" });
+  });
+
+  it("usePrepaidHours + no active package: uses the prepaid-specific message", async () => {
+    vi.mocked(selectActivePackage).mockResolvedValue(null as never);
+    vi.mocked(createAdminClient).mockReturnValue(makeAdmin({}) as never);
+    await expect(
+      createBooking(baseInput({ usePrepaidHours: true })),
+    ).rejects.toMatchObject({
+      field: "student_package",
+      message: "لا يوجد رصيد ساعات كافٍ — اختر باقتك أو اشترِ ساعات",
+    });
+  });
+
+  it("pending-count check errors: fails OPEN (logs, doesn't block) and continues validating", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        bookings: { updateError: { message: "count query failed" } },
+        teacher_profiles: { data: null },
+      }) as never,
+    );
+    await expect(createBooking(baseInput())).rejects.toMatchObject({
+      field: "teacher_id",
+    });
+    expect(logError).toHaveBeenCalledWith(
+      "createBooking: pending-count check failed — allowing",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("pendingCount >= the per-student cap: rejects before any teacher lookup", async () => {
+    const admin = makeAdmin({ bookings: { count: 10 } });
+    vi.mocked(createAdminClient).mockReturnValue(admin as never);
+    await expect(createBooking(baseInput())).rejects.toMatchObject({
+      name: "BookingValidationError",
+      field: "student_package",
+    });
+    expect(admin.from).not.toHaveBeenCalledWith("teacher_profiles");
+  });
+
+  it("teacher_availability has slots but the requested time fits none of them", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        teacher_profiles: { data: { hourly_rate: 10, specialties: ["memorization"] } },
+        teacher_availability: {
+          data: [{ start_time: "09:00", end_time: "10:00", slot_duration: 60 }],
+        },
+      }) as never,
+    );
+    await expect(
+      createBooking(baseInput({ localTime: "23:00" })),
+    ).rejects.toMatchObject({ field: "scheduled_at" });
+  });
+
+  it("matching slot found but the requested duration exceeds it", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        teacher_profiles: { data: { hourly_rate: 10, specialties: ["memorization"] } },
+        teacher_availability: {
+          data: [{ start_time: "09:00", end_time: "11:00", slot_duration: 30 }],
+        },
+      }) as never,
+    );
+    await expect(
+      createBooking(baseInput({ localTime: "10:00", durationMin: 60 })),
+    ).rejects.toMatchObject({ field: "duration_min" });
+  });
+
+  it("availability_exceptions blocks the whole date", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        teacher_profiles: { data: { hourly_rate: 10, specialties: ["memorization"] } },
+        teacher_availability: { data: [] },
+        availability_exceptions: {
+          data: [{ is_blocked: true, start_time: null, end_time: null }],
+        },
+      }) as never,
+    );
+    await expect(createBooking(baseInput())).rejects.toMatchObject({
+      field: "scheduled_at",
+    });
+  });
+
+  it("insert fails with a non-overlap DB error: logs and throws the generic Arabic error", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        teacher_profiles: { data: { hourly_rate: 10, specialties: ["memorization"] } },
+        teacher_availability: { data: [] },
+        availability_exceptions: { data: [] },
+        bookings: { data: null, error: { message: "constraint violation: unrelated" } },
+      }) as never,
+    );
+    await expect(createBooking(baseInput())).rejects.toThrow(
+      "حدث خطأ أثناء إنشاء الحجز",
+    );
+    expect(logError).toHaveBeenCalledWith(
+      "createBooking insert failed",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("insert succeeds but returns no id: throws the defensive error", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        teacher_profiles: { data: { hourly_rate: 10, specialties: ["memorization"] } },
+        teacher_availability: { data: [] },
+        availability_exceptions: { data: [] },
+        bookings: { data: { id: null } },
+      }) as never,
+    );
+    await expect(createBooking(baseInput())).rejects.toThrow(
+      "لم يتم إنشاء الحجز",
+    );
+  });
 });
 
 describe("updateBookingStatus", () => {
@@ -196,5 +378,86 @@ describe("updateBookingStatus", () => {
     expect(res.oldStatus).toBe("pending");
     expect(res.newStatus).toBe("confirmed");
     expect(res.studentId).toBe("s-1");
+  });
+
+  it("concurrent cancel: loses the conditional-UPDATE race → alreadyInTargetState, no audit write", async () => {
+    // Pre-read observes a non-cancelled (pending) row — same as the winning
+    // caller would see. The conditional UPDATE (`.neq("status", newStatus)`)
+    // returns 0 rows because a concurrent request already won the race and
+    // flipped the row first. The re-read then reports the current row.
+    const admin = makeAdmin({
+      bookings: {
+        data: { id: "b-1", status: "pending", student_id: "s-1", teacher_id: "t-1" },
+        updateRows: [],
+      },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(admin as never);
+
+    const res = await updateBookingStatus({
+      bookingId: "b-1",
+      newStatus: "cancelled",
+      actorId: "a-1",
+    });
+
+    expect(res.alreadyInTargetState).toBe(true);
+    expect(res.oldStatus).toBe("pending");
+    // Loser of the race writes nothing — no audit_log insert.
+    expect(admin.from).not.toHaveBeenCalledWith("audit_log");
+  });
+
+  it("throws BookingStatusUpdateError when the conditional UPDATE itself errors", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        bookings: {
+          data: { id: "b-1", status: "pending", student_id: "s-1", teacher_id: "t-1" },
+          updateError: { message: "db down" },
+        },
+      }) as never,
+    );
+    await expect(
+      updateBookingStatus({ bookingId: "b-1", newStatus: "confirmed", actorId: "a-1" }),
+    ).rejects.toBeInstanceOf(BookingStatusUpdateError);
+  });
+
+  it("loses the race AND the row is gone on re-read: throws BookingNotFoundError", async () => {
+    // Pre-read sees a live (pending) row; the conditional UPDATE returns 0
+    // rows (lost the race); by the time we re-read, the row itself is gone
+    // — surfaces as not-found rather than a fabricated alreadyInTargetState.
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        bookings: {
+          singleSequence: [
+            { data: { id: "b-1", status: "pending", student_id: "s-1", teacher_id: "t-1" } },
+            { data: null },
+          ],
+          updateRows: [],
+        },
+      }) as never,
+    );
+    await expect(
+      updateBookingStatus({ bookingId: "b-1", newStatus: "cancelled", actorId: "a-1" }),
+    ).rejects.toBeInstanceOf(BookingNotFoundError);
+  });
+
+  it("winning transition without an explicit reason: audit INSERT failure is logged, not thrown", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        bookings: {
+          data: { id: "b-1", status: "pending", student_id: "s-1", teacher_id: "t-1" },
+        },
+        audit_log: { updateError: { message: "audit insert failed" } },
+      }) as never,
+    );
+    const res = await updateBookingStatus({
+      bookingId: "b-1",
+      newStatus: "confirmed",
+      actorId: "a-1",
+    });
+    expect(res.alreadyInTargetState).toBe(false);
+    expect(logError).toHaveBeenCalledWith(
+      "updateBookingStatus: audit row INSERT failed",
+      expect.anything(),
+      expect.anything(),
+    );
   });
 });

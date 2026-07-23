@@ -103,6 +103,15 @@ describe("cancelBooking", () => {
     expect(notify).toHaveBeenCalled();
   });
 
+  it("notify failure is best-effort: still resolves, emitEvent still runs", async () => {
+    vi.mocked(notify).mockRejectedValue(new Error("push service down"));
+
+    await expect(cancelBooking({ bookingId: "b1", actorId: "t1", actorRole: "teacher" })).resolves.toMatchObject({
+      alreadyCancelled: false,
+    });
+    expect(emitEvent).toHaveBeenCalled();
+  });
+
   it("passes reason through to the domain write", async () => {
     await cancelBooking({ bookingId: "b1", actorId: "a1", actorRole: "admin", reason: "Admin set booking cancelled" });
 

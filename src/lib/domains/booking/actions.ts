@@ -357,12 +357,19 @@ export async function updateBookingStatus(
     };
   }
 
-  // Update.
+  // Conditional update — the atomicity guard (CodeRabbit #770). `.neq("status",
+  // newStatus)` makes the UPDATE itself the race arbiter instead of the
+  // pre-read above: two concurrent callers can both pre-read a non-target
+  // row, but the DB serializes concurrent writers on the same row, so only
+  // one UPDATE actually flips it and gets a row back. The loser's WHERE
+  // clause matches nothing post-transition — 0 rows.
   const updatePayload: TableUpdate<"bookings"> = { status: newStatus };
-  const { error: updateErr } = await supabase
+  const { data: updatedRows, error: updateErr } = await supabase
     .from("bookings")
     .update(updatePayload)
-    .eq("id", bookingId);
+    .eq("id", bookingId)
+    .neq("status", newStatus)
+    .select("id");
 
   if (updateErr) {
     logError("updateBookingStatus: bookings UPDATE failed", updateErr, {
@@ -371,6 +378,36 @@ export async function updateBookingStatus(
       metadata: { bookingId, newStatus, actorId },
     });
     throw new BookingStatusUpdateError(updateErr.message);
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    // Lost the race (or the row changed between our pre-read and the
+    // UPDATE) — re-read once to report the current, authoritative state.
+    // No audit write here: this caller made no change, matching the
+    // existing no-op silence on an already-in-target-state transition.
+    const { data: current } = await supabase
+      .from("bookings")
+      .select("id, status, student_id, teacher_id")
+      .eq("id", bookingId)
+      .single<{
+        id: string;
+        status: BookingStatus;
+        student_id: string;
+        teacher_id: string;
+      }>();
+
+    if (!current) {
+      throw new BookingNotFoundError(bookingId);
+    }
+
+    return {
+      id: current.id,
+      oldStatus: current.status,
+      newStatus,
+      studentId: current.student_id,
+      teacherId: current.teacher_id,
+      alreadyInTargetState: true,
+    };
   }
 
   // Audit row — best-effort. Failures are logged but don't fail the op
