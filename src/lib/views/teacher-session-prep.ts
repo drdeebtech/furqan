@@ -89,13 +89,13 @@ export async function getStudentSessionPrep(
   // No created_at filter here — metric 2 is all-time; metric 1 slices the
   // 90-day window in memory. The embed also dodges the URL-length risk of a
   // two-step `.in(progressIds)` for a student with many progress rows.
-  const res = await supabase
+  const { data, error } = await supabase
     .from("recitation_errors")
     .select("error_type, surah_num, ayah_num, note, created_at, student_progress!inner(student_id)")
     .eq("student_progress.student_id", studentId)
     .returns<ErrorRow[]>();
-  if (res.error) throw res.error;
-  const rows = res.data ?? [];
+  if (error) throw error;
+  const rows = data ?? [];
 
   // ── Metric 1: top-3 error categories, last 90 days ──────────────────────
   const windowStart = Date.now() - SESSION_PREP_WINDOW_DAYS * 86400_000;
