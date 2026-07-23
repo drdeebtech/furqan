@@ -25,6 +25,7 @@ import {
   type TargetScope,
 } from "@/lib/domains/single-sessions/quran-validation";
 import { validateInstantSlot } from "@/lib/domains/single-sessions/instant-slot";
+import { materializeSingleSessionBooking } from "@/lib/domains/single-sessions/materialize";
 import {
   PAYMENTS_UNAVAILABLE_MESSAGE,
   PAYMENTS_UNAVAILABLE_STATUS,
@@ -439,59 +440,27 @@ export async function POST(request: Request) {
   // The SAME creator the webhook calls — no bare INSERT. With payment_id NULL
   // the payment-link step is a no-op (no charge to link). data-model §3.
   if (priceUsd <= 0) {
-    if (!directCreate) {
-      // Instant zero-price is allowed — model it via the instant creator path.
-      const { data: bookingId, error: rpcErr } = await admin.rpc(
-        "start_instant_session_booking",
-        {
-          p_student_id: studentId,
-          p_teacher_id: teacherId,
-          p_session_type: "hifz" as const,
-          p_duration_min: 30,
-          p_rate_snapshot: 0,
-          p_amount_usd: 0,
-          p_scheduled_at: body.scheduledAt ?? new Date().toISOString(),
-          p_payment_id: undefined,
-        },
-      );
-      if (rpcErr || !bookingId) {
-        logError("single-session: zero-price instant booking RPC failed", rpcErr ?? new Error("no id"), {
-          tag: "single-sessions",
-          student_id: studentId,
-          teacher_id: teacherId,
-        });
-        return NextResponse.json(
-          { success: false, error: "Booking creation failed" },
-          { status: 500 },
-        );
-      }
-      logInfo("single-session: zero-price instant booking created", {
-        tag: "single-sessions",
-        booking_id: bookingId as string,
-      });
-      return NextResponse.json({
-        success: true,
-        data: { bookingId: bookingId as string, message: "booking_created_free" },
-      });
-    }
+    // Delegates to the shared materialize seam (Task 8) — the SAME RPC
+    // choice, arg assembly, and target_scope parse the webhook uses. p_payment_id
+    // is null here (no charge to link); the instant branch now ALSO gets the
+    // best-effort booking.created emit the paid webhook always had (the
+    // verified drift fix — see materialize.ts docstring).
+    const result = await materializeSingleSessionBooking(admin, {
+      studentId,
+      teacherId,
+      bookingType: directCreate?.kind ?? "instant",
+      paymentId: null,
+      specialty: directCreate?.specialty ?? null,
+      purpose: directCreate?.purpose ?? null,
+      targetScopeRaw: directCreate?.targetScope ? JSON.stringify(directCreate.targetScope) : null,
+      scheduledAt: body.scheduledAt ?? null,
+    });
 
-    const { data: bookingId, error: rpcErr } = await admin.rpc(
-      "create_single_session_booking",
-      {
-        p_student_id: studentId,
-        p_teacher_id: teacherId,
-        p_booking_product_type: directCreate.kind,
-        p_payment_id: undefined,
-        p_specialty: directCreate.specialty ?? undefined,
-        p_purpose: directCreate.purpose ?? undefined,
-        p_target_scope: (directCreate.targetScope ?? undefined) as unknown as never,
-      },
-    );
-    if (rpcErr || !bookingId) {
-      // Race window: two concurrent free-evaluation checkouts can both pass
-      // the pre-checks; the loser hits the DB backstop index. Surface the
-      // same friendly 409 as the pre-check, not a 500.
-      if (rpcErr?.message?.includes("uniq_active_assessment_per_student")) {
+    if (!result.ok) {
+      if (result.code === "duplicate_active_assessment") {
+        // Race window: two concurrent free-evaluation checkouts can both pass
+        // the pre-checks; the loser hits the DB backstop index. Surface the
+        // same friendly 409 as the pre-check, not a 500.
         return NextResponse.json(
           {
             success: false,
@@ -501,24 +470,40 @@ export async function POST(request: Request) {
           { status: 409 },
         );
       }
-      logError("single-session: zero-price creator RPC failed", rpcErr ?? new Error("no id"), {
-        tag: "single-sessions",
-        student_id: studentId,
-        product_type: directCreate.kind,
-      });
+      if (directCreate) {
+        logError("single-session: zero-price creator RPC failed", result.cause, {
+          tag: "single-sessions",
+          student_id: studentId,
+          product_type: directCreate.kind,
+        });
+      } else {
+        logError("single-session: zero-price instant booking RPC failed", result.cause, {
+          tag: "single-sessions",
+          student_id: studentId,
+          teacher_id: teacherId,
+        });
+      }
       return NextResponse.json(
         { success: false, error: "Booking creation failed" },
         { status: 500 },
       );
     }
-    logInfo("single-session: zero-price booking created", {
-      tag: "single-sessions",
-      booking_id: bookingId as string,
-      product_type: directCreate.kind,
-    });
+
+    if (directCreate) {
+      logInfo("single-session: zero-price booking created", {
+        tag: "single-sessions",
+        booking_id: result.bookingId,
+        product_type: directCreate.kind,
+      });
+    } else {
+      logInfo("single-session: zero-price instant booking created", {
+        tag: "single-sessions",
+        booking_id: result.bookingId,
+      });
+    }
     return NextResponse.json({
       success: true,
-      data: { bookingId: bookingId as string, message: "booking_created_free" },
+      data: { bookingId: result.bookingId, message: "booking_created_free" },
     });
   }
 

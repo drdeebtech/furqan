@@ -21,6 +21,8 @@ const {
   mockSessionsCreate,
   mockAdminFrom,
   mockCountActiveAssessments,
+  mockDispatchEffects,
+  mockEmitEvent,
 } = vi.hoisted(() => ({
   mockRequireRole: vi.fn(),
   mockGetUser: vi.fn(),
@@ -34,6 +36,17 @@ const {
   mockGetSetting: vi.fn(),
   mockSessionsCreate: vi.fn(),
   mockAdminFrom: vi.fn(),
+  mockDispatchEffects: vi.fn().mockResolvedValue(undefined),
+  mockEmitEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Task 8: the shared materialize seam emits booking.created for `instant`
+// bookings — mock it out here rather than let it run for real in a route test.
+vi.mock("@/lib/automation/effects", () => ({
+  dispatchEffects: mockDispatchEffects,
+}));
+vi.mock("@/lib/automation/emit", () => ({
+  emitEvent: mockEmitEvent,
 }));
 
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
@@ -420,6 +433,19 @@ describe("POST /api/stripe/checkout/single-session (spec 022)", () => {
     expect(rpcArgs.p_specialty).toBe("hifz");
   });
 
+  // Free assessment/specialized never emitted booking.created before this
+  // extraction, and it still doesn't — that pair had NO drift (both call
+  // sites already agreed on "never"). See materialize.ts docstring.
+  it("free assessment booking does NOT emit booking.created (unchanged, no drift here)", async () => {
+    mockAssessmentPrice.mockResolvedValue(0);
+    mockRpc.mockResolvedValueOnce({ data: "booking-uuid-002", error: null });
+
+    await POST(makeReq({ productType: "assessment", specialty: "hifz" }));
+
+    expect(mockDispatchEffects).not.toHaveBeenCalled();
+    expect(mockEmitEvent).not.toHaveBeenCalled();
+  });
+
   it("creates an instant session via start_instant_session_booking on zero-price", async () => {
     mockInstantPrice.mockResolvedValue(0);
     mockRpc.mockResolvedValueOnce({ data: "booking-instant-001", error: null });
@@ -434,6 +460,29 @@ describe("POST /api/stripe/checkout/single-session (spec 022)", () => {
 
     const fnName = mockRpc.mock.calls[0][0];
     expect(fnName).toBe("start_instant_session_booking");
+  });
+
+  // VERIFIED DRIFT FIX (Task 8): the paid webhook's instant path always
+  // emitted booking.created; this zero-price route path did not — a student
+  // booking a free instant slot never notified the teacher. Confirmed by
+  // direct code read (not the task brief's "free-eval" framing — see
+  // materialize.ts docstring for the corrected drift analysis).
+  it("zero-price instant booking now emits booking.created (the fixed drift)", async () => {
+    mockInstantPrice.mockResolvedValue(0);
+    mockRpc.mockResolvedValueOnce({ data: "booking-instant-002", error: null });
+
+    await POST(makeReq({ productType: "instant", teacherId: TEACHER_ID }));
+
+    expect(mockDispatchEffects).toHaveBeenCalledWith(
+      "booking.created",
+      expect.objectContaining({ teacherId: TEACHER_ID, entityId: "booking-instant-002" }),
+    );
+    expect(mockEmitEvent).toHaveBeenCalledWith(
+      "booking.created",
+      "booking",
+      "booking-instant-002",
+      expect.objectContaining({ student_id: STUDENT_ID, teacher_id: TEACHER_ID }),
+    );
   });
 
   it("returns a checkoutUrl for a valid specialized booking (surah 36)", async () => {

@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
  * a SECURITY FINDING, not silently adjusted to match.
  */
 
+vi.mock("server-only", () => ({}));
 vi.mock("@/lib/logger", () => ({ logError: vi.fn(), logInfo: vi.fn() }));
 
 const { mockIsConfigured, mockVerify, mockGrant, mockParseRefundCaptureId, mockCreateAdminClient } =
@@ -54,7 +55,16 @@ function makeAdmin(opts: {
     from: vi.fn((table: string) => ({
       insert: vi.fn((payload: unknown) => {
         dbCalls.push({ op: "insert", table, payload });
-        return Promise.resolve({ error: insertError });
+        // ingestBillingEvent chains .select("id").maybeSingle() after insert
+        // (needed to thread billingEventId through for ALL providers).
+        return {
+          select: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: insertError ? null : { id: "new-row-1" },
+              error: insertError,
+            }),
+          })),
+        };
       }),
       update: vi.fn((payload: unknown) => {
         dbCalls.push({ op: "update", table, payload });

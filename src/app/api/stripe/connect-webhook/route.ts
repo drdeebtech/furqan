@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import StripeSdk from "stripe";
-import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
-import { markEvent, type EventContext } from "@/lib/domains/billing/webhook-handlers";
+import {
+  markEvent,
+  ingestBillingEvent,
+  type EventContext,
+} from "@/lib/domains/billing/webhook-handlers";
 import {
   handleConnectAccountUpdated,
   handleConnectPayoutEvent,
@@ -77,31 +80,17 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // ── Gate 2: shared idempotency ledger ────────────────────────────────────
-  const { data: eventRow, error: insErr } = await admin
-    .from("billing_events")
-    .insert({
-      stripe_event_id: event.id,
-      event_type: event.type,
-      stripe_event_created: new Date(event.created * 1000).toISOString(),
-      status: "received",
-      payload: event as unknown as Json,
-    })
-    .select("id")
-    .maybeSingle();
-
-  if (insErr) {
-    if (insErr.code === "23505") {
-      const { data: dupRow } = await admin
-        .from("billing_events")
-        .select("id, status")
-        .eq("stripe_event_id", event.id)
-        .maybeSingle<{ id: string; status: string }>();
-      if (!dupRow || dupRow.status === "processed" || dupRow.status === "ignored") {
-        return NextResponse.json({ received: true, duplicate: true });
-      }
-      return dispatch({ admin, stripe, event, billingEventId: dupRow.id });
-    }
+  // ── Gate 2: shared idempotency ledger (ADR-0005: shared Billing seam) ────
+  let ingest: Awaited<ReturnType<typeof ingestBillingEvent>>;
+  try {
+    ingest = await ingestBillingEvent(admin, {
+      provider: "stripe",
+      eventId: event.id,
+      eventType: event.type,
+      createdMs: event.created * 1000,
+      payload: event,
+    });
+  } catch (insErr) {
     logError("connect-webhook: billing_events insert failed", insErr, {
       tag: "connect-webhook",
       event_id: event.id,
@@ -110,7 +99,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Ledger write failed" }, { status: 500 });
   }
 
-  return dispatch({ admin, stripe, event, billingEventId: eventRow?.id ?? null });
+  if (ingest.outcome === "duplicate") {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
+  return dispatch({ admin, stripe, event, billingEventId: ingest.billingEventId });
 }
 
 /** Route the connected-account event to its handler. */

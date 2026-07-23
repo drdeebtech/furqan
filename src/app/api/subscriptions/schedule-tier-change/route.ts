@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireRole } from "@/lib/auth/require-admin";
-import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+import { requireRoleForApi } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { scheduleRenewalChange } from "@/lib/domains/catalog/tier-changes";
 import { logError } from "@/lib/logger";
@@ -25,18 +24,9 @@ const Body = z.object({
 });
 
 export async function POST(request: Request) {
-  let userId: string;
-  try {
-    ({ id: userId } = await requireRole("student"));
-  } catch (e) {
-    if (e instanceof UnauthenticatedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e instanceof ForbiddenError) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    throw e;
-  }
+  const g = await requireRoleForApi("student");
+  if (g instanceof NextResponse) return g;
+  const userId = g.id;
 
   let parsed: z.infer<typeof Body>;
   try {
