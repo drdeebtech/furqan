@@ -8,7 +8,7 @@ import { useLang } from "@/lib/i18n/context";
 import { HomeworkAudioPlayer } from "@/components/shared/homework-audio-player";
 import { GradeForm } from "@/app/teacher/follow-up/grade-form";
 import type { CapturedError } from "@/lib/domains/progress/types";
-import type { TalqeenFilter, TalqeenQueueRow } from "@/lib/teacher-queries";
+import type { TalqeenFilter, TalqeenQueueRow } from "@/lib/views/teacher-talqeen";
 
 function mmss(sec: number): string {
   const m = Math.floor(sec / 60);
