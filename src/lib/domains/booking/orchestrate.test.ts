@@ -176,6 +176,30 @@ describe("confirmBooking", () => {
     expect(mockEmitEvent).not.toHaveBeenCalled();
   });
 
+  it("throws BookingConfirmError on a non-not-found pre-read error (e.g. transient DB error)", async () => {
+    // PGRST116 ("no rows") is the expected not-found signal and is handled
+    // by the `!booking` branch below it; any OTHER error code is an
+    // unexpected DB failure and should surface as BookingConfirmError.
+    mockSupabaseSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: "500", message: "connection reset" },
+    });
+
+    await expect(
+      confirmBooking({ bookingId: BOOKING_ID, actorId: ACTOR_ID }),
+    ).rejects.toBeInstanceOf(BookingConfirmError);
+
+    expect(mockCreateRoom).not.toHaveBeenCalled();
+  });
+
+  it("BookingRoomCreationError message falls back when createRoom throws a non-Error", async () => {
+    mockCreateRoom.mockRejectedValueOnce("Daily unreachable");
+
+    await expect(
+      confirmBooking({ bookingId: BOOKING_ID, actorId: ACTOR_ID }),
+    ).rejects.toMatchObject({ message: "Daily.co room creation failed: createRoom failed" });
+  });
+
   it("throws BookingAlreadyConfirmedError when the booking is not pending (pre-read state guard)", async () => {
     mockSupabaseSingle.mockResolvedValueOnce({
       data: { ...PENDING_BOOKING, status: "confirmed" },

@@ -5,7 +5,7 @@ import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import type { BookingStatus } from "@/types/database";
 import { updateBookingStatus as updateBookingStatusDomain } from "@/lib/domains/booking/actions";
-import { confirmBooking } from "@/lib/domains/booking/orchestrate";
+import { cancelBooking, confirmBooking } from "@/lib/domains/booking/orchestrate";
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
@@ -96,6 +96,35 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
     return { success: true };
   }
 
+  // Cancel path: orchestrator owns the choreography end-to-end — domain
+  // write (audit row), student notify with the admin wording, and
+  // emitEvent("booking.cancelled"). Behavior change (intended, this is
+  // the bug fix): admin cancels now notify the student — the previous
+  // inline path never did.
+  if (newStatus === "cancelled") {
+    try {
+      await cancelBooking({
+        bookingId,
+        actorId,
+        actorRole: "admin",
+        reason: "Admin set booking cancelled",
+      });
+    } catch (err) {
+      if (err instanceof BookingNotFoundError) return { error: "الحجز غير موجود" };
+      if (err instanceof BookingStatusUpdateError) {
+        logError("admin cancelBooking failed", err, {
+          tag: "admin-bookings",
+          severity: "warning",
+          metadata: { bookingId, actorId },
+        });
+        return { error: "تعذر تحديث الحجز" };
+      }
+      throw err;
+    }
+    revalidatePath("/admin/bookings");
+    return { success: true };
+  }
+
   // Non-confirm transitions: keep using the existing domain function.
   let result;
   try {
@@ -119,15 +148,13 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
   }
 
   // Emit per-status event only when the row actually transitioned.
-  // (`confirmed` is handled above by the orchestrator and never reaches
-  // this branch — keeps the emit single-source-of-truth per status.)
+  // (`confirmed` and `cancelled` are handled above by their
+  // orchestrators and never reach this branch — keeps the emit
+  // single-source-of-truth per status.)
   if (!result.alreadyInTargetState) {
-    const eventName =
-      newStatus === "cancelled" ? "booking.cancelled"
-      : "booking.status_changed";
     try {
       await emitEvent(
-        eventName,
+        "booking.status_changed",
         "booking",
         bookingId,
         {
