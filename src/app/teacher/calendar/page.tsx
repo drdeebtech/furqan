@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
-import { getTeacherCalendarEvents } from "@/lib/teacher-queries";
+import { getTeacherCalendarEvents } from "@/lib/views/teacher-calendar";
 import { TeacherCalendarGrid } from "./teacher-calendar-grid";
 
 export const metadata: Metadata = { title: "تقويم المعلم" };
@@ -29,7 +29,7 @@ export default async function TeacherCalendarPage({ searchParams }: PageProps) {
   const monthStart = startOfMonth(viewMonth);
   const monthEnd = endOfMonth(viewMonth);
 
-  const payload = await getTeacherCalendarEvents(user.id, monthStart, monthEnd);
+  const payload = await getTeacherCalendarEvents(supabase, user.id, monthStart, monthEnd);
 
   return (
     <TeacherCalendarGrid
