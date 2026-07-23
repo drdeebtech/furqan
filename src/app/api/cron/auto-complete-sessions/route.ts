@@ -4,7 +4,14 @@ import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 import { emitEvent } from "@/lib/automation/emit";
 import { notify } from "@/lib/notifications/dispatcher";
 import { finalizeAttendance } from "@/lib/domains/attendance/finalize";
+import { awardAchievement } from "@/lib/domains/achievements/award";
+import { notifyParentSessionComplete } from "@/lib/notifications/parent";
 import { logError } from "@/lib/logger";
+
+// Non-human actor id for calls that record "who triggered this" — the same
+// service-actor sentinel used by the n8n-triggered parent-report route
+// (src/app/api/reports/session/[id]/send/route.ts).
+const CRON_ACTOR_ID = "00000000-0000-0000-0000-000000000000";
 
 export const dynamic = "force-dynamic";
 
@@ -86,16 +93,35 @@ export const GET = withAuthedCronMonitor(
       const teacherAttended = session.teacher_joined === true;
 
       try {
-        // Always close the stranded session so the ghost timer clears.
-        const { error: sessionUpdateErr } = await admin
+        // Always close the stranded session so the ghost timer clears. An
+        // UPDATE matching zero rows still returns success with no error in
+        // Supabase — `.select("id")` is required to tell "we closed it"
+        // apart from "another closer (a manual endSession, or a concurrent
+        // cron run) already won the race". When we lost the race, none of
+        // the post-close side effects below (booking completion, payroll,
+        // notify, audit, emit, badge, parent report) may run — the winner
+        // already ran them; re-running here would double them.
+        const { data: closedRows, error: sessionUpdateErr } = await admin
           .from("sessions")
           .update({
             ended_at: now.toISOString(),
             actual_duration: actualDuration,
           })
           .eq("id", session.id)
-          .is("ended_at", null);
+          .is("ended_at", null)
+          .select("id");
         if (sessionUpdateErr) throw sessionUpdateErr;
+        if (!closedRows || closedRows.length === 0) {
+          logError(
+            "auto-complete-sessions: lost the close race — another closer already ended this session, skipping side effects",
+            null,
+            {
+              tag: "cron-auto-complete-sessions",
+              metadata: { session_id: session.id, booking_id: session.booking_id },
+            },
+          );
+          continue;
+        }
 
         if (!teacherAttended) {
           // F3: the teacher never joined, so this is NOT a real completed
@@ -156,6 +182,29 @@ export const GET = withAuthedCronMonitor(
               metadata: { session_id: session.id, booking_id: session.booking_id },
             }),
           );
+        }
+
+        // Drift fix: this branch is the cron's own teacher-attended
+        // completion path (kept separate from endSession — see the module
+        // header comment for why full delegation is out of scope). It had
+        // fallen out of sync with endSession's post-commit steps (src/lib/
+        // domains/session/orchestrate.ts), silently skipping the
+        // first_session badge and the parent report for any session closed
+        // by this cron instead of a manual "End Session". Same best-effort
+        // shape as endSession: never block cleanup on these.
+        await awardAchievement(booking.student_id, "first_session").catch((err) =>
+          logError("auto-complete-sessions: first_session award failed", err, {
+            tag: "achievements",
+          }),
+        );
+
+        try {
+          await notifyParentSessionComplete(session.id, CRON_ACTOR_ID);
+        } catch (err) {
+          logError("auto-complete-sessions: notifyParentSessionComplete failed", err, {
+            tag: "cron-auto-complete-sessions",
+            metadata: { student_id: booking.student_id, session_id: session.id },
+          });
         }
 
         // Route through the dispatcher (P3 #345) so preference / quiet-hours

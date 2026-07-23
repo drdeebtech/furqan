@@ -1,5 +1,6 @@
 import type { ServerClient } from "@/lib/supabase/types";
 import { buildNameMap } from "@/lib/admin/name-map";
+import { unreadMessagesFilter } from "@/lib/views/_shared/unread-messages";
 import { loadOrFail, countOrFail, helperOrFail } from "@/lib/supabase/load-or-fail";
 import { logError } from "@/lib/logger";
 import { getTeacherTimeToGrade } from "@/lib/views/teacher-insights";
@@ -190,10 +191,7 @@ export async function teacherDashboardView(
   const todaySessions = todayLoad.data;
   const allStudentIds = [...new Set([...pending.map(b => b.student_id), ...todaySessions.map(b => b.student_id)])];
   const [messagesRes, sessionsRes, nameMap] = await Promise.all([
-    supabase.from("messages").select("id", { count: "exact", head: true })
-      .in("conversation_id", convIds)
-      .neq("sender_id", teacherId)
-      .eq("is_read", false),
+    unreadMessagesFilter(supabase, convIds, teacherId),
     supabase.from("sessions")
       .select("id, booking_id, room_url, expires_at, started_at, ended_at")
       .in("booking_id", todayBookingIds)

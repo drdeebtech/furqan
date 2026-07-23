@@ -47,6 +47,7 @@ vi.mock("@/lib/supabase/load-or-fail", () => ({
 vi.mock("@/lib/logger", () => ({ logError: vi.fn() }));
 vi.mock("@/lib/domains/achievements/award", () => ({ awardAchievement: vi.fn() }));
 vi.mock("@/lib/domains/goals/goals", () => ({ getGoalDashboardData: vi.fn() }));
+vi.mock("@/lib/views/_shared/unread-messages", () => ({ unreadMessagesFilter: vi.fn() }));
 
 import {
   studentMurajaahWidgetData,
@@ -65,6 +66,7 @@ import {
   getStudentHomeworkPulse,
 } from "@/lib/views/student-dashboard-queries";
 import { logError } from "@/lib/logger";
+import { unreadMessagesFilter } from "@/lib/views/_shared/unread-messages";
 import { after } from "next/server";
 import { awardAchievement } from "@/lib/domains/achievements/award";
 
@@ -484,6 +486,7 @@ describe("studentDashboardView", () => {
 
   it("surfaces subscription summary, unread messages, and rich evaluation (S1/S2/S3)", async () => {
     stubCoreHelpers();
+    vi.mocked(unreadMessagesFilter).mockResolvedValue({ count: 4, error: null } as never);
 
     const supabase = makeFlexSupabase({
       // [0]=totalQ [1]=monthQ [2]=nextBooking [3]=pending [4]=todaySessions
@@ -510,7 +513,6 @@ describe("studentDashboardView", () => {
       ],
       subscription_plans: [{ data: { name: "Hifz Premium" }, error: null }],
       conversations: [{ data: [{ id: "c1" }, { id: "c2" }], error: null }],
-      messages: [{ count: 4, error: null }],
       student_packages: [{ data: [], error: null }],
       student_progress: [{ data: null, error: null }],
       session_evaluations: [{
@@ -536,7 +538,9 @@ describe("studentDashboardView", () => {
       currentPeriodEnd: "2026-08-01T00:00:00Z",
       cancelAtPeriodEnd: false,
     });
-    // S2 — unread count derived from the student's conversations.
+    // S2 — unread count derived from the student's conversations, via the
+    // ONE shared filter (excludes moderator-hidden, drops dead deleted_at).
+    expect(unreadMessagesFilter).toHaveBeenCalledWith(supabase, ["c1", "c2"], STUDENT_ID);
     expect(result.data.unreadMessages).toBe(4);
     // S3 — evaluation now carries rating + strengths, not only next_goals.
     expect(result.data.latestEvaluation).toEqual({
