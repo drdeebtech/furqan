@@ -1,0 +1,114 @@
+{
+  // Dead-code detection config. Run: npx knip
+  //
+  // Every entry below is code that IS used but that knip cannot see, because
+  // nothing `import`s it. Verified 2026-07-21 against a full sweep: knip flagged
+  // 47 candidates, only 2 were genuinely removable. These exemptions are the
+  // other 45.
+  //
+  // RULE: never add an exemption without a comment saying why. An unexplained
+  // exemption gets deleted by the next person.
+  //
+  // entry  = "this is a root; analyse it and what it imports"
+  // ignore = "do not look at this at all"
+  // Use ignore for code we do not own, or knip will report its dependencies as
+  // unlisted.
+
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+
+  "entry": [
+    // --- Next.js App Router --------------------------------------------------
+    // knip's next plugin already handles these; listed defensively so a plugin
+    // regression cannot silently expose every page and route as "unused".
+    "src/app/**/{page,route,layout,loading,error,not-found,template}.{ts,tsx}",
+    "src/middleware.ts",
+    "src/instrumentation*.ts",
+
+    // --- Loaded by the browser, never imported -------------------------------
+    // The service worker is fetched by the browser at runtime. Deleting it
+    // breaks the PWA silently, in production only.
+    "public/sw.js",
+    "public/sw-register.js",
+
+    // --- Run by hand or by CI, never imported --------------------------------
+    // Includes stripe-bootstrap-live-plans.ts, required for Stripe go-live,
+    // and the n8n audit/harden tooling.
+    "scripts/**/*.{ts,mjs,js}",
+
+    // --- Load tests, executed by the k6 CLI ----------------------------------
+    "k6/**/*.js",
+    "tests/load/**/*.{ts,js}",
+
+    // --- Test entry points ---------------------------------------------------
+    "e2e/**/*.spec.ts",
+    "src/**/*.test.{ts,tsx}",
+
+    // --- Server actions ------------------------------------------------------
+    // Invoked by React across the server/client boundary, not by an import knip
+    // can follow, so they read as unused. changeUserRole, updateSessionNotes and
+    // markConversationAsRead were all flagged; deleting any of them silently
+    // breaks a working feature.
+    "src/**/actions.{ts,tsx}",
+    "src/lib/actions/**/*.{ts,tsx}"
+  ],
+
+  "ignore": [
+    // Raw Supabase codegen. Exports consumed through type inference, invisible
+    // to knip.
+    "src/types/supabase.generated.ts",
+
+    // The hand-corrected types layer (specs/026). 60 of its type aliases read as
+    // unused because they are consumed through inference, not named imports.
+    // Ignored for REPORTING only. This file is load-bearing and must never be
+    // collapsed, blind-regenerated, or diffed against supabase.generated.ts:
+    // doing so has already been proven to drop corrections and break the build.
+    "src/types/database.ts",
+
+    // Claude Code harness hooks, invoked via settings.json, not by import.
+    // IGNORED rather than listed as entry: they import their own tooling
+    // (@claude-flow/memory, better-sqlite3, sql.js) which is deliberately not in
+    // this project's package.json. Treating them as entry made knip report all
+    // of those as unlisted dependencies. statusline.cjs is frozen; never touch.
+    ".claude/**",
+
+    // Vendored agent tooling, not our code to maintain.
+    ".agents/**",
+    "ECC/**"
+  ],
+
+  "ignoreDependencies": [
+    // Never imported. next.config.ts forwards options to the sentry-cli binary
+    // at build time for source-map upload. Removing this breaks production
+    // source maps and nothing else notices until you read a stack trace.
+    "@sentry/cli",
+
+    // k6 built-in modules (k6/http, k6/metrics, ...). Provided by the k6
+    // runtime at execution time, never installed from npm. The k6 scripts stay
+    // as entry points so knip still reports one going unused.
+    "k6"
+  ],
+
+  "ignoreBinaries": [
+    // Provided by the environment / devcontainer, not by package.json.
+    "psql",
+    "supabase",
+    "vercel"
+  ]
+
+  // DELIBERATELY NOT EXEMPTED — real findings, keep them visible:
+  //
+  //   src/lib/courses/revenue-split.ts                  computeCourseRevenueSplit
+  //   src/lib/domains/honor-board/compute.ts            computeHonorBoard
+  //   src/lib/domains/reports/month-close-detector.ts   detectMonthCloseAndEmit
+  //
+  // All three have zero importers, but none are dead:
+  //   - computeCourseRevenueSplit is REQUIRED by specs/040 ("course earnings
+  //     MUST reuse computeCourseRevenueSplit unchanged").
+  //   - computeHonorBoard is the refresh worker for a shipped feature, blocked
+  //     on an undefined product metric (specs/023 T023).
+  //   - detectMonthCloseAndEmit emits month-close events and was never wired to
+  //     a scheduler.
+  //
+  // They are wiring gaps, not dead code. Leaving them flagged keeps that gap
+  // visible. Do not delete them; wire them or close them deliberately.
+}
