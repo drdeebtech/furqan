@@ -69,6 +69,30 @@ describe("getTeacherRecitationRoster", () => {
     });
   });
 
+  it("averages quality_rating across multiple progress rows for a student", async () => {
+    const now = Date.now();
+    const isoDaysAgo = (d: number) => new Date(now - d * 24 * 60 * 60 * 1000).toISOString();
+    chain.returns
+      .mockResolvedValueOnce({ data: [{ student_id: "s1" }], error: null }) // distinct students RPC
+      .mockResolvedValueOnce({
+        data: [{ id: "s1", full_name: "Aisha", avatar_url: null }],
+        error: null,
+      }) // profiles
+      .mockResolvedValueOnce({
+        data: [
+          { student_id: "s1", surah_from: 1, surah_to: 2, quality_rating: 4, created_at: isoDaysAgo(1) },
+          { student_id: "s1", surah_from: 1, surah_to: 2, quality_rating: 5, created_at: isoDaysAgo(2) },
+          { student_id: "s1", surah_from: 1, surah_to: 2, quality_rating: 3, created_at: isoDaysAgo(3) },
+        ],
+        error: null,
+      }); // roster_recent_progress RPC — three rows for s1
+
+    const rows = await getTeacherRecitationRoster(chain as never, TEACHER);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].qualityAvgLast5).toBe(4); // (4 + 5 + 3) / 3
+  });
+
   it("returns [] without further queries when the teacher has no students", async () => {
     chain.returns.mockResolvedValueOnce({ data: [], error: null });
     const rows = await getTeacherRecitationRoster(chain as never, TEACHER);

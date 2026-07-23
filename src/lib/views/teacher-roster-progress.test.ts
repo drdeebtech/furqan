@@ -83,6 +83,60 @@ describe("getTeacherRosterProgress", () => {
     });
   });
 
+  it("flags at-risk when daysSinceLastEval is exactly 30 (eval-lag boundary)", async () => {
+    const now = Date.now();
+    const exactly30Iso = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+    chain.returns
+      .mockResolvedValueOnce({ data: [{ student_id: "s1" }], error: null }) // distinct students
+      .mockResolvedValueOnce({ data: [{ id: "s1", full_name: "Aisha" }], error: null }) // profiles
+      .mockResolvedValueOnce({
+        data: [
+          {
+            student_id: "s1",
+            evaluation_date: exactly30Iso,
+            hifz_score: 4,
+            tajweed_score: 4,
+            fluency_score: 4,
+            attendance_score: 4,
+            overall_score: 4,
+          },
+        ],
+        error: null,
+      }); // evals RPC — good scores, only the 30-day lag should trigger atRisk
+
+    const rows = await getTeacherRosterProgress(chain as never, TEACHER);
+
+    expect(rows[0].daysSinceLastEval).toBe(30);
+    expect(rows[0].atRisk).toBe(true);
+  });
+
+  it("does not flag at-risk when daysSinceLastEval is 29 (under the eval-lag boundary)", async () => {
+    const now = Date.now();
+    const exactly29Iso = new Date(now - 29 * 24 * 60 * 60 * 1000).toISOString();
+    chain.returns
+      .mockResolvedValueOnce({ data: [{ student_id: "s1" }], error: null }) // distinct students
+      .mockResolvedValueOnce({ data: [{ id: "s1", full_name: "Aisha" }], error: null }) // profiles
+      .mockResolvedValueOnce({
+        data: [
+          {
+            student_id: "s1",
+            evaluation_date: exactly29Iso,
+            hifz_score: 4,
+            tajweed_score: 4,
+            fluency_score: 4,
+            attendance_score: 4,
+            overall_score: 4,
+          },
+        ],
+        error: null,
+      }); // evals RPC — good scores, 29-day gap is still under the lag threshold
+
+    const rows = await getTeacherRosterProgress(chain as never, TEACHER);
+
+    expect(rows[0].daysSinceLastEval).toBe(29);
+    expect(rows[0].atRisk).toBe(false);
+  });
+
   it("returns [] without further queries when the teacher has no students", async () => {
     chain.returns.mockResolvedValueOnce({ data: [], error: null });
     const rows = await getTeacherRosterProgress(chain as never, TEACHER);

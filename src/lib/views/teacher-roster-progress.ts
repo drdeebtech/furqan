@@ -38,7 +38,7 @@ export interface TeacherRosterProgressRow {
   daysSinceLastEval: number | null;
   /** Surfaces students who need attention. Three signals OR'd:
    *   - composite < 3 (poor scores)
-   *   - daysSinceLastEval > 30 (eval lag)
+   *   - daysSinceLastEval is 30 days or more (eval lag)
    *   - never evaluated despite a booking history */
   atRisk: boolean;
 }

@@ -95,6 +95,12 @@ describe("getTalqeenQueueForTeacher", () => {
     expect(chain.gte).toHaveBeenCalledWith("ready_at", expect.any(String));
   });
 
+  it("applies the 'this-week' filter as a 7-day gte cutoff", async () => {
+    chain.returns.mockResolvedValueOnce({ data: [], error: null });
+    await getTalqeenQueueForTeacher(chain as never, TEACHER, "this-week");
+    expect(chain.gte).toHaveBeenCalledWith("ready_at", expect.any(String));
+  });
+
   it("applies the 'overdue' filter as an lt cutoff on the streak-break-risk threshold", async () => {
     chain.returns.mockResolvedValueOnce({ data: [], error: null });
     await getTalqeenQueueForTeacher(chain as never, TEACHER, "overdue");

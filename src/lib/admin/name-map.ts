@@ -1,5 +1,5 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ServerClient } from "@/lib/supabase/types";
 import { logError } from "@/lib/logger";
 import { resolveStudentNames } from "@/lib/views/_shared/teacher-reads";
 
@@ -24,18 +24,14 @@ import { resolveStudentNames } from "@/lib/views/_shared/teacher-reads";
  * caller of this widely-used helper (18 call sites) starts throwing.
  */
 export async function buildNameMap(
-  supabase: SupabaseClient,
+  supabase: ServerClient,
   ids: readonly string[],
   fallback = "—",
 ): Promise<Record<string, string>> {
   if (ids.length === 0) return {};
   try {
-    // `resolveStudentNames` takes `ServerClient` (the app's cookie-bound,
-    // Database-typed client); callers here pass the generic
-    // `SupabaseClient` type. Both wrap the same @supabase/supabase-js
-    // client at runtime — narrowest cast available across the two aliases.
     const names = await resolveStudentNames(
-      supabase as unknown as Parameters<typeof resolveStudentNames>[0],
+      supabase,
       [...ids],
     );
     const result: Record<string, string> = {};

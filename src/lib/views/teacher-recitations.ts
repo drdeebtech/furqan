@@ -84,13 +84,7 @@ export async function getTeacherRecitationRoster(
   const studentIds = (distinctRes.data ?? []).map((r) => r.student_id);
   if (studentIds.length === 0) return [];
 
-  // Step 2: parallel fetches.
-  // Per-student `.limit(5)` instead of one global `.limit(N)`: a single
-  // very-active student can otherwise dominate a union limit and starve
-  // quieter students of any rows. With Promise.all the N+1 cost is
-  // amortized in parallel; for typical rosters (5–30 students) latency
-  // is unchanged. For very large rosters (100+) consider a Postgres
-  // window-function RPC instead.
+  // Step 2: parallel fetches (profiles + last-5-per-student progress).
   type ProgressRow = {
     student_id: string;
     surah_from: number | null;
