@@ -18,8 +18,13 @@ import type { Database } from "@/types/supabase.generated";
 import type { SubscriptionMirror, SubscriptionStatus } from "./types";
 import { logError } from "@/lib/logger";
 
+export type BillingSubscriptionProvider = "stripe" | "paypal";
+
 /** A normalized Stripe subscription snapshot extracted from a webhook event. */
 export interface StripeSubscriptionSnapshot {
+  provider?: BillingSubscriptionProvider;
+  providerSubscriptionId?: string;
+  providerCustomerId?: string | null;
   stripeSubscriptionId: string;
   stripeCustomerId: string;
   status: string;
@@ -72,18 +77,23 @@ export async function upsertMirror(
   admin: SupabaseClient<Database>,
   snap: StripeSubscriptionSnapshot,
 ): Promise<SubscriptionMirror | null> {
+  const provider = snap.provider ?? "stripe";
+  const providerSubscriptionId = snap.providerSubscriptionId ?? snap.stripeSubscriptionId;
+  const providerCustomerId = snap.providerCustomerId !== undefined
+    ? snap.providerCustomerId
+    : snap.stripeCustomerId;
   try {
-    // Lock the Stripe-provider row to read last_event_at consistently.
+    // Lock the provider row to read last_event_at consistently.
     const { data: existing, error: readErr } = await admin
       .from("subscriptions")
       .select("id, last_event_at")
-      .eq("provider", "stripe")
-      .eq("provider_subscription_id", snap.stripeSubscriptionId)
+      .eq("provider", provider)
+      .eq("provider_subscription_id", providerSubscriptionId)
       .maybeSingle();
 
     if (readErr) {
       logError("billing.upsertMirror read failed", readErr, {
-        tag: "billing", stripe_subscription_id: snap.stripeSubscriptionId,
+        tag: "billing", provider, provider_subscription_id: providerSubscriptionId,
       });
       return null;
     }
@@ -116,7 +126,7 @@ export async function upsertMirror(
         .maybeSingle();
       if (updErr) {
         logError("billing.upsertMirror update failed", updErr, {
-          tag: "billing", subscription_id: existing.id,
+          tag: "billing", provider, subscription_id: existing.id,
         });
         return null;
       }
@@ -129,7 +139,7 @@ export async function upsertMirror(
     // a resolved plan (the webhook handler resolves it from the sub's price).
     if (!snap.planId) {
       logError("billing.upsertMirror insert skipped: missing plan_id", new Error("missing plan_id"), {
-        tag: "billing", stripe_subscription_id: snap.stripeSubscriptionId,
+        tag: "billing", provider, provider_subscription_id: providerSubscriptionId,
       });
       return null;
     }
@@ -137,11 +147,11 @@ export async function upsertMirror(
     const insert = {
       student_id: snap.studentId,
       plan_id: snap.planId,
-      provider: "stripe",
-      provider_subscription_id: snap.stripeSubscriptionId,
-      provider_customer_id: snap.stripeCustomerId,
-      stripe_subscription_id: snap.stripeSubscriptionId,
-      stripe_customer_id: snap.stripeCustomerId,
+      provider,
+      provider_subscription_id: providerSubscriptionId,
+      provider_customer_id: providerCustomerId,
+      stripe_subscription_id: provider === "stripe" ? snap.stripeSubscriptionId : null,
+      stripe_customer_id: provider === "stripe" ? snap.stripeCustomerId : null,
       status: insertStatus,
       current_period_start: snap.currentPeriodStart,
       current_period_end: snap.currentPeriodEnd,
@@ -157,27 +167,30 @@ export async function upsertMirror(
       .single();
     if (insErr || !created) {
       logError("billing.upsertMirror insert failed", insErr ?? new Error("no row"), {
-        tag: "billing", stripe_subscription_id: snap.stripeSubscriptionId,
+        tag: "billing", provider, provider_subscription_id: providerSubscriptionId,
       });
       return null;
     }
     return toDomain(created);
   } catch (err) {
     logError("billing.upsertMirror crashed", err, {
-      tag: "billing", stripe_subscription_id: snap.stripeSubscriptionId,
+      tag: "billing", provider, provider_subscription_id: providerSubscriptionId,
     });
     return null;
   }
 }
 
 const rowShape =
-  "id, student_id, payer_user_id, plan_id, stripe_subscription_id, stripe_customer_id, status, current_period_start, current_period_end, cancel_at_period_end, last_event_at, canceled_at" as const;
+  "id, student_id, payer_user_id, plan_id, provider, provider_subscription_id, provider_customer_id, stripe_subscription_id, stripe_customer_id, status, current_period_start, current_period_end, cancel_at_period_end, last_event_at, canceled_at" as const;
 
 type MirrorRow = {
   id: string;
   student_id: string;
   payer_user_id: string | null;
   plan_id: string;
+  provider: string;
+  provider_subscription_id: string | null;
+  provider_customer_id: string | null;
   stripe_subscription_id: string | null;
   stripe_customer_id: string | null;
   status: SubscriptionStatus;
@@ -194,6 +207,9 @@ function toDomain(r: MirrorRow): SubscriptionMirror {
     studentId: r.student_id,
     payerUserId: r.payer_user_id,
     planId: r.plan_id,
+    provider: r.provider === "paypal" ? "paypal" : "stripe",
+    providerSubscriptionId: r.provider_subscription_id,
+    providerCustomerId: r.provider_customer_id,
     stripeSubscriptionId: r.stripe_subscription_id,
     stripeCustomerId: r.stripe_customer_id,
     status: r.status,

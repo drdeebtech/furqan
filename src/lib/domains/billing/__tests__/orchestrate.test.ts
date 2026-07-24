@@ -101,7 +101,25 @@ describe("grantCycle — param forwarding", () => {
       p_credit_count: grantInput.creditCount,
       p_expires_at: grantInput.expiresAt,
       p_session_metadata: grantInput.sessionMetadata,
+      p_provider: "stripe",
+      p_provider_ref: undefined,
     });
+  });
+
+  it("passes provider overrides for PayPal subscription cycles", async () => {
+    const admin = makeAdmin({ priorGrantId: null, rpcData: "grant-paypal", rpcError: null });
+    await grantCycle(admin as never, {
+      ...grantInput,
+      stripePaymentIntent: "SALE-1",
+      provider: "paypal",
+      providerRef: "SALE-1",
+    });
+
+    expect(admin.rpc).toHaveBeenCalledWith("grant_subscription_cycle", expect.objectContaining({
+      p_stripe_payment_intent: "SALE-1",
+      p_provider: "paypal",
+      p_provider_ref: "SALE-1",
+    }));
   });
 
   it("returns ok:true with grantId on success (new grant)", async () => {

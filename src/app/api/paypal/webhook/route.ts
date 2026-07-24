@@ -1,9 +1,26 @@
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { markEvent, ingestBillingEvent } from "@/lib/domains/billing/webhook-handlers";
+import { emitEvent } from "@/lib/automation/emit";
+import {
+  markEvent,
+  ingestBillingEvent,
+  WebhookTransientError,
+  revokeAndCancelOnSubscriptionRefund,
+} from "@/lib/domains/billing/webhook-handlers";
+import { BillingEvents } from "@/lib/domains/billing/events";
+import { buildCycleKey, grantCycle } from "@/lib/domains/billing/orchestrate";
+import { getActivePlanByCode } from "@/lib/domains/billing/plans";
+import {
+  shouldApplyEvent,
+  upsertMirror,
+  type StripeSubscriptionSnapshot,
+} from "@/lib/domains/billing/subscriptions";
 import { logError, logInfo } from "@/lib/logger";
 import {
+  cancelPayPalSubscription,
+  getPayPalSubscription,
   isPayPalWebhookConfigured,
   verifyPayPalWebhookSignature,
 } from "@/lib/paypal/client";
@@ -12,6 +29,7 @@ import {
   grantPaypalSingleSessionCapture,
   parseRefundCaptureId,
 } from "@/lib/paypal/grant";
+import { parseSubscriptionCustomId } from "@/lib/paypal/subscription-custom-id";
 
 export const maxDuration = 60;
 
@@ -75,11 +93,198 @@ const RefundResourceSchema = z
   })
   .passthrough();
 
+/** PayPal subscription resource shape for BILLING.SUBSCRIPTION.* events. */
+const SubscriptionResourceSchema = z
+  .object({
+    id: z.string().optional(),
+    billing_agreement_id: z.string().optional(),
+  })
+  .passthrough();
+
+/** Money event resource for PAYMENT.SALE.COMPLETED. */
+const SaleCompletedResourceSchema = z
+  .object({
+    id: z.string(),
+    billing_agreement_id: z.string(),
+    amount: z.object({
+      total: z.string(),
+      currency: z.string().optional(),
+      currency_code: z.string().optional(),
+    }),
+  })
+  .passthrough();
+
+/** Money reversal resource for PAYMENT.SALE.REFUNDED. */
+const SaleRefundedResourceSchema = z
+  .object({
+    id: z.string().optional(),
+    sale_id: z.string().optional(),
+    billing_agreement_id: z.string().optional(),
+    amount: z
+      .object({
+        total: z.string().optional(),
+        currency: z.string().optional(),
+        currency_code: z.string().optional(),
+      })
+      .optional(),
+    links: z.array(z.object({ href: z.string(), rel: z.string() })).optional(),
+  })
+  .passthrough();
+
 interface CompletedCapture {
   captureId: string;
   amountUsd: number;
   customId: string;
   orderId: string | null;
+}
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+type PaypalEvent = z.infer<typeof PaypalEventSchema>;
+
+type PaypalEventStatus =
+  | "active"
+  | "past_due"
+  | "canceled";
+
+interface PaypalMirrorRow {
+  id: string;
+  student_id: string;
+  plan_id: string;
+  last_event_at: string;
+}
+
+function paypalEventCreatedMs(event: PaypalEvent): number {
+  const parsed = event.create_time ? Date.parse(event.create_time) : NaN;
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function amountStringToCents(amount: string): number | null {
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(amount)) return null;
+  const [dollarsRaw, centsRaw = ""] = amount.split(".");
+  const dollars = Number(dollarsRaw);
+  const cents = Number(centsRaw.padEnd(2, "0"));
+  if (!Number.isSafeInteger(dollars) || !Number.isSafeInteger(cents)) return null;
+  const total = dollars * 100 + cents;
+  return Number.isSafeInteger(total) && total > 0 ? total : null;
+}
+
+function amountCurrency(amount: { currency?: string; currency_code?: string }): string | null {
+  return (amount.currency ?? amount.currency_code ?? null)?.toUpperCase() ?? null;
+}
+
+function normalizeIso(value: string | null): string | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+async function validateStudentProfile(
+  admin: AdminClient,
+  studentId: string,
+): Promise<{ ok: true } | { ok: false; reason: string; retryable: boolean }> {
+  const { data: profile, error: profileErr } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("id", studentId)
+    .maybeSingle<{ id: string; role: string | null }>();
+  if (profileErr) {
+    logError("paypal-webhook: profile lookup failed", profileErr, {
+      tag: "paypal-webhook",
+      student_id: studentId,
+    });
+    return { ok: false, reason: "profile lookup failed", retryable: true };
+  }
+  if (!profile) {
+    return { ok: false, reason: `no profile for student_id ${studentId}`, retryable: false };
+  }
+  if (profile.role !== "student") {
+    return {
+      ok: false,
+      reason: `student_id ${studentId} role is ${profile.role}, not student`,
+      retryable: false,
+    };
+  }
+  return { ok: true };
+}
+
+async function readPaypalMirror(
+  admin: AdminClient,
+  subscriptionId: string,
+): Promise<PaypalMirrorRow | null> {
+  const { data, error } = await admin
+    .from("subscriptions")
+    .select("id, student_id, plan_id, last_event_at")
+    .eq("provider", "paypal")
+    .eq("provider_subscription_id", subscriptionId)
+    .maybeSingle<PaypalMirrorRow>();
+  if (error) {
+    throw new WebhookTransientError(`paypal mirror lookup failed: ${error.message}`);
+  }
+  return data ?? null;
+}
+
+async function paypalSnapshotFromSubscription(
+  admin: AdminClient,
+  subscriptionId: string,
+  status: PaypalEventStatus,
+  eventCreatedMs: number,
+): Promise<
+  | { ok: true; snap: StripeSubscriptionSnapshot }
+  | { ok: false; reason: string; retryable: boolean }
+> {
+  let subscription: Awaited<ReturnType<typeof getPayPalSubscription>>;
+  try {
+    subscription = await getPayPalSubscription(subscriptionId);
+  } catch (err) {
+    logError("paypal-webhook: get subscription failed", err, {
+      tag: "paypal-webhook",
+      subscription_id: subscriptionId,
+    });
+    throw new WebhookTransientError(`paypal subscription retrieve failed: ${subscriptionId}`);
+  }
+
+  if (!subscription.customId) {
+    return { ok: false, reason: "subscription missing custom_id", retryable: false };
+  }
+  const parsed = parseSubscriptionCustomId(subscription.customId);
+  if (
+    !parsed ||
+    (parsed.productType !== "subscription" && parsed.productType !== "subscription_upgrade")
+  ) {
+    return { ok: false, reason: "bad subscription custom_id", retryable: false };
+  }
+
+  const plan = await getActivePlanByCode(admin, parsed.planCode);
+  if (!plan) {
+    return { ok: false, reason: `plan not found: ${parsed.planCode}`, retryable: false };
+  }
+
+  const profile = await validateStudentProfile(admin, parsed.studentId);
+  if (!profile.ok) return profile;
+
+  return {
+    ok: true,
+    snap: {
+      provider: "paypal",
+      providerSubscriptionId: subscriptionId,
+      providerCustomerId: null,
+      stripeSubscriptionId: subscriptionId,
+      stripeCustomerId: "",
+      status,
+      currentPeriodStart: normalizeIso(subscription.currentPeriodStart),
+      currentPeriodEnd: normalizeIso(subscription.currentPeriodEnd),
+      cancelAtPeriodEnd: false,
+      eventCreatedSeconds: Math.floor(eventCreatedMs / 1000),
+      studentId: parsed.studentId,
+      planId: plan.id,
+    },
+  };
+}
+
+function subscriptionIdFromEvent(event: PaypalEvent): string | null {
+  const parsed = SubscriptionResourceSchema.safeParse(event.resource);
+  if (!parsed.success) return null;
+  return parsed.data.id ?? parsed.data.billing_agreement_id ?? null;
 }
 
 async function handleSingleSessionCapture(
@@ -380,6 +585,340 @@ async function handleExternalRefund(
   return { retryable: false };
 }
 
+async function handlePaypalSubscriptionEvent(
+  admin: AdminClient,
+  event: PaypalEvent,
+  billingEventId: string | null,
+  status: PaypalEventStatus,
+  opts: { emit?: typeof BillingEvents.PastDue | typeof BillingEvents.Canceled } = {},
+): Promise<void> {
+  const subscriptionId = subscriptionIdFromEvent(event);
+  if (!subscriptionId) {
+    await markEvent({ admin, billingEventId }, "failed", "subscription id missing", "paypal-webhook");
+    return;
+  }
+
+  const eventCreatedMs = paypalEventCreatedMs(event);
+  const eventIso = new Date(eventCreatedMs).toISOString();
+  const existing = await readPaypalMirror(admin, subscriptionId);
+
+  if (existing) {
+    const lastEventMs = Date.parse(existing.last_event_at);
+    if (
+      Number.isFinite(lastEventMs) &&
+      !shouldApplyEvent(eventCreatedMs, lastEventMs)
+    ) {
+      await markEvent({ admin, billingEventId }, "processed", "stale event ignored", "paypal-webhook");
+      return;
+    }
+
+    if (event.event_type !== "BILLING.SUBSCRIPTION.UPDATED") {
+      const { error } = await admin
+        .from("subscriptions")
+        .update({
+          status,
+          last_event_at: eventIso,
+          ...(status === "canceled" ? { canceled_at: eventIso } : {}),
+        })
+        .eq("id", existing.id);
+      if (error) {
+        throw new WebhookTransientError(`paypal subscription status update failed: ${error.message}`);
+      }
+      await markEvent({ admin, billingEventId }, "processed", undefined, "paypal-webhook");
+      if (opts.emit) {
+        emitEvent(opts.emit, "subscription", existing.id, {
+          subscription_id: existing.id,
+          student_id: existing.student_id,
+        }).catch((err) => logError(`emit ${opts.emit} failed`, err, { tag: "billing" }));
+      }
+      return;
+    }
+  }
+
+  const snapshot = await paypalSnapshotFromSubscription(
+    admin,
+    subscriptionId,
+    status,
+    eventCreatedMs,
+  );
+  if (!snapshot.ok) {
+    await markEvent({ admin, billingEventId }, "failed", snapshot.reason, "paypal-webhook");
+    if (snapshot.retryable) {
+      throw new WebhookTransientError(snapshot.reason);
+    }
+    return;
+  }
+
+  const mirror = await upsertMirror(admin, snapshot.snap);
+  if (!mirror) {
+    await markEvent({ admin, billingEventId }, "failed", "upsertMirror returned null", "paypal-webhook");
+    return;
+  }
+
+  await markEvent({ admin, billingEventId }, "processed", undefined, "paypal-webhook");
+  if (opts.emit) {
+    emitEvent(opts.emit, "subscription", mirror.id, {
+      subscription_id: mirror.id,
+      student_id: mirror.studentId,
+    }).catch((err) => logError(`emit ${opts.emit} failed`, err, { tag: "billing" }));
+  }
+}
+
+async function resolvePaypalMirrorForGrant(args: {
+  admin: AdminClient;
+  subscriptionId: string;
+  eventCreatedMs: number;
+  studentId: string;
+  planId: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+}): Promise<string | null> {
+  const existing = await readPaypalMirror(args.admin, args.subscriptionId);
+  if (existing) {
+    if (existing.student_id !== args.studentId || existing.plan_id !== args.planId) {
+      return null;
+    }
+    return existing.id;
+  }
+
+  const mirror = await upsertMirror(args.admin, {
+    provider: "paypal",
+    providerSubscriptionId: args.subscriptionId,
+    providerCustomerId: null,
+    stripeSubscriptionId: args.subscriptionId,
+    stripeCustomerId: "",
+    status: "active",
+    currentPeriodStart: args.currentPeriodStart,
+    currentPeriodEnd: args.currentPeriodEnd,
+    cancelAtPeriodEnd: false,
+    eventCreatedSeconds: Math.floor(args.eventCreatedMs / 1000),
+    studentId: args.studentId,
+    planId: args.planId,
+  });
+  if (mirror) return mirror.id;
+
+  const winner = await readPaypalMirror(args.admin, args.subscriptionId);
+  return winner?.id ?? null;
+}
+
+async function handlePaypalSaleCompleted(
+  admin: AdminClient,
+  event: PaypalEvent,
+  billingEventId: string | null,
+): Promise<void> {
+  const resourceParsed = SaleCompletedResourceSchema.safeParse(event.resource);
+  if (!resourceParsed.success) {
+    await markEvent({ admin, billingEventId }, "failed", "sale resource malformed", "paypal-webhook");
+    return;
+  }
+  const sale = resourceParsed.data;
+  const currency = amountCurrency(sale.amount);
+  if (currency !== "USD") {
+    await markEvent(
+      { admin, billingEventId },
+      "failed",
+      `non-usd currency: ${currency ?? "missing"}`,
+      "paypal-webhook",
+    );
+    return;
+  }
+  const amountCents = amountStringToCents(sale.amount.total);
+  if (!amountCents) {
+    await markEvent({ admin, billingEventId }, "failed", "sale amount malformed", "paypal-webhook");
+    return;
+  }
+
+  let subscription: Awaited<ReturnType<typeof getPayPalSubscription>>;
+  try {
+    subscription = await getPayPalSubscription(sale.billing_agreement_id);
+  } catch (err) {
+    logError("paypal-webhook: sale subscription lookup failed", err, {
+      tag: "paypal-webhook",
+      event_id: event.id,
+      subscription_id: sale.billing_agreement_id,
+    });
+    throw new WebhookTransientError(`paypal subscription retrieve failed: ${sale.billing_agreement_id}`);
+  }
+
+  const periodStartIso = normalizeIso(subscription.currentPeriodStart);
+  const periodEndIso = normalizeIso(subscription.currentPeriodEnd);
+  if (!periodStartIso || !periodEndIso) {
+    throw new WebhookTransientError(`paypal subscription period missing: ${sale.billing_agreement_id}`);
+  }
+  if (!subscription.customId) {
+    await markEvent({ admin, billingEventId }, "failed", "subscription missing custom_id", "paypal-webhook");
+    return;
+  }
+
+  const parsed = parseSubscriptionCustomId(subscription.customId);
+  if (
+    !parsed ||
+    (parsed.productType !== "subscription" && parsed.productType !== "subscription_upgrade")
+  ) {
+    await markEvent({ admin, billingEventId }, "failed", "bad subscription custom_id", "paypal-webhook");
+    return;
+  }
+
+  const profile = await validateStudentProfile(admin, parsed.studentId);
+  if (!profile.ok) {
+    await markEvent({ admin, billingEventId }, "failed", profile.reason, "paypal-webhook");
+    if (profile.retryable) {
+      throw new WebhookTransientError(profile.reason);
+    }
+    return;
+  }
+
+  const plan = await getActivePlanByCode(admin, parsed.planCode);
+  if (!plan) {
+    await markEvent({ admin, billingEventId }, "failed", `plan not found: ${parsed.planCode}`, "paypal-webhook");
+    return;
+  }
+
+  const mirrorId = await resolvePaypalMirrorForGrant({
+    admin,
+    subscriptionId: sale.billing_agreement_id,
+    eventCreatedMs: paypalEventCreatedMs(event),
+    studentId: parsed.studentId,
+    planId: plan.id,
+    currentPeriodStart: periodStartIso,
+    currentPeriodEnd: periodEndIso,
+  });
+  if (!mirrorId) {
+    await markEvent({ admin, billingEventId }, "failed", "could not resolve paypal subscription mirror", "paypal-webhook");
+    return;
+  }
+
+  const cycleKey = buildCycleKey({
+    invoiceId: sale.id,
+    subscriptionId: sale.billing_agreement_id,
+    periodStartIso,
+  });
+  const result = await grantCycle(admin, {
+    subscriptionId: mirrorId,
+    studentId: parsed.studentId,
+    planId: plan.id,
+    cycleKey,
+    stripePaymentIntent: sale.id,
+    provider: "paypal",
+    providerRef: sale.id,
+    amountCents,
+    creditCount: plan.monthlyCreditCount,
+    expiresAt: periodEndIso,
+    sessionMetadata: plan.sessionMetadata,
+  });
+  if (!result.ok) {
+    throw new WebhookTransientError(result.error);
+  }
+
+  if (billingEventId) {
+    await admin.from("billing_events").update({ subscription_id: mirrorId }).eq("id", billingEventId);
+  }
+  await markEvent({ admin, billingEventId }, "processed", undefined, "paypal-webhook");
+
+  emitEvent(
+    result.created ? BillingEvents.Activated : BillingEvents.Renewed,
+    "subscription",
+    mirrorId,
+    {
+      student_id: parsed.studentId,
+      plan_id: plan.id,
+      cycle_key: cycleKey,
+      grant_id: result.grantId,
+    },
+  ).catch((err) => logError("emit paypal subscription activated/renewed failed", err, { tag: "billing" }));
+}
+
+function saleIdFromRefundResource(
+  resource: z.infer<typeof SaleRefundedResourceSchema>,
+): string | null {
+  if (resource.sale_id) return resource.sale_id;
+  const up = resource.links?.find((link) => link.rel === "up");
+  const match = up?.href.match(/\/sales?\/([^/?]+)/);
+  return match?.[1] ?? resource.id ?? null;
+}
+
+async function handlePaypalSaleRefunded(
+  admin: AdminClient,
+  event: PaypalEvent,
+  billingEventId: string | null,
+): Promise<void> {
+  const resourceParsed = SaleRefundedResourceSchema.safeParse(event.resource);
+  if (!resourceParsed.success) {
+    await markEvent({ admin, billingEventId }, "failed", "sale refund resource malformed", "paypal-webhook");
+    return;
+  }
+  const refund = resourceParsed.data;
+  const saleId = saleIdFromRefundResource(refund);
+  if (!saleId) {
+    await markEvent({ admin, billingEventId }, "failed", "refund missing sale id", "paypal-webhook");
+    return;
+  }
+
+  const { data: payment, error: paymentErr } = await admin
+    .from("payments")
+    .select("amount_usd")
+    .eq("paypal_sale_id", saleId)
+    .maybeSingle<{ amount_usd: number }>();
+  if (paymentErr) {
+    throw new WebhookTransientError(`paypal refund payment lookup failed: ${paymentErr.message}`);
+  }
+  if (!payment) {
+    await markEvent({ admin, billingEventId }, "processed", "refund not for a local subscription sale", "paypal-webhook");
+    return;
+  }
+
+  const currency = refund.amount ? amountCurrency(refund.amount) : "USD";
+  if (currency !== "USD") {
+    await markEvent(
+      { admin, billingEventId },
+      "failed",
+      `non-usd refund currency: ${currency ?? "missing"}`,
+      "paypal-webhook",
+    );
+    return;
+  }
+  const refundedCents = refund.amount?.total
+    ? amountStringToCents(refund.amount.total)
+    : Math.round(payment.amount_usd * 100);
+  if (!refundedCents) {
+    await markEvent({ admin, billingEventId }, "failed", "refund amount malformed", "paypal-webhook");
+    return;
+  }
+  const originalCents = Math.round(payment.amount_usd * 100);
+  if (refundedCents < originalCents) {
+    logInfo("paypal-webhook: partial subscription refund left sessions + plan intact", {
+      tag: "billing",
+      sale_id: saleId,
+      refunded_cents: refundedCents,
+      original_cents: originalCents,
+    });
+    await markEvent({ admin, billingEventId }, "processed", "partial refund ignored", "paypal-webhook");
+    return;
+  }
+
+  await revokeAndCancelOnSubscriptionRefund(
+    { admin },
+    {
+      id: saleId,
+      currency: "usd",
+      refunded: true,
+      payment_intent: saleId,
+      amount: originalCents,
+      amount_refunded: refundedCents,
+    } as Stripe.Charge,
+    {
+      provider: "paypal",
+      grantPaymentRefColumn: "provider_payment_ref",
+      paymentColumn: "paypal_sale_id",
+      cancelProviderSubscription: async (subscriptionId) => {
+        await cancelPayPalSubscription(subscriptionId, "Subscription payment fully refunded");
+      },
+    },
+  );
+
+  await markEvent({ admin, billingEventId }, "processed", undefined, "paypal-webhook");
+}
+
 /** Route the event type to the appropriate handler.
  *
  * Retry semantics: PayPal redelivers ONLY on non-2xx. A handler returns
@@ -427,6 +966,46 @@ async function dispatch(
           event_id: event.id,
         });
         await markEvent({ admin, billingEventId }, "ignored", event.event_type, "paypal-webhook");
+        break;
+      }
+
+      case "BILLING.SUBSCRIPTION.ACTIVATED": {
+        await handlePaypalSubscriptionEvent(admin, event, billingEventId, "active");
+        break;
+      }
+
+      case "BILLING.SUBSCRIPTION.UPDATED": {
+        await handlePaypalSubscriptionEvent(admin, event, billingEventId, "active");
+        break;
+      }
+
+      case "BILLING.SUBSCRIPTION.CANCELLED":
+      case "BILLING.SUBSCRIPTION.EXPIRED": {
+        await handlePaypalSubscriptionEvent(admin, event, billingEventId, "canceled", {
+          emit: BillingEvents.Canceled,
+        });
+        break;
+      }
+
+      case "BILLING.SUBSCRIPTION.SUSPENDED": {
+        await handlePaypalSubscriptionEvent(admin, event, billingEventId, "past_due");
+        break;
+      }
+
+      case "BILLING.SUBSCRIPTION.PAYMENT.FAILED": {
+        await handlePaypalSubscriptionEvent(admin, event, billingEventId, "past_due", {
+          emit: BillingEvents.PastDue,
+        });
+        break;
+      }
+
+      case "PAYMENT.SALE.COMPLETED": {
+        await handlePaypalSaleCompleted(admin, event, billingEventId);
+        break;
+      }
+
+      case "PAYMENT.SALE.REFUNDED": {
+        await handlePaypalSaleRefunded(admin, event, billingEventId);
         break;
       }
 

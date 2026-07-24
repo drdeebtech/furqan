@@ -1089,9 +1089,19 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
 // `WHERE status != 'canceled'`, and the Stripe cancel treats an already-cancelled
 // subscription as success.
 export async function revokeAndCancelOnSubscriptionRefund(
-  ctx: EventContext,
+  ctx: { admin: EventContext["admin"]; stripe?: EventContext["stripe"] },
   charge: Stripe.Charge,
+  opts: {
+    provider?: "stripe" | "paypal";
+    grantPaymentRefColumn?: "stripe_payment_intent_id" | "provider_payment_ref";
+    paymentColumn?: "stripe_payment_intent" | "paypal_sale_id";
+    cancelProviderSubscription?: (providerSubscriptionId: string) => Promise<void>;
+  } = {},
 ): Promise<void> {
+  const provider = opts.provider ?? "stripe";
+  const grantPaymentRefColumn = opts.grantPaymentRefColumn ?? "stripe_payment_intent_id";
+  const paymentColumn = opts.paymentColumn ?? "stripe_payment_intent";
+
   if (!charge.refunded) {
     // Partial refund — owner decision is full-refund-only. Leave everything
     // intact; surface it so a partial refund is never silently a no-op.
@@ -1109,12 +1119,13 @@ export async function revokeAndCancelOnSubscriptionRefund(
 
   // Route locally by the charge's payment intent — dahlia charges carry no
   // invoice link. The subscription cycle grant records the PI on
-  // `stripe_payment_intent_id` (and, unlike prepaid lots, a `subscription_id`);
-  // prepaid one-off refunds are handled by the reconcile path above.
+  // `stripe_payment_intent_id` on Stripe and `provider_payment_ref` on PayPal
+  // (and, unlike prepaid lots, a `subscription_id`); prepaid one-off refunds
+  // are handled by the reconcile path above.
   const { data: grant, error: grantErr } = await ctx.admin
     .from("student_packages")
     .select("subscription_id")
-    .eq("stripe_payment_intent_id", piId)
+    .eq(grantPaymentRefColumn, piId)
     .not("subscription_id", "is", null)
     .limit(1)
     .maybeSingle<{ subscription_id: string | null }>();
@@ -1130,7 +1141,7 @@ export async function revokeAndCancelOnSubscriptionRefund(
   const { error: payErr } = await ctx.admin
     .from("payments")
     .update({ status: "refunded" })
-    .eq("stripe_payment_intent", piId);
+    .eq(paymentColumn, piId);
   if (payErr) throw new WebhookTransientError(`refund: payment flip failed: ${payErr.message}`);
 
   // 2. Revoke UNUSED capacity: flip this subscription's still-active grants to
@@ -1143,32 +1154,43 @@ export async function revokeAndCancelOnSubscriptionRefund(
     .eq("status", "active");
   if (revokeErr) throw new WebhookTransientError(`refund: session revoke failed: ${revokeErr.message}`);
 
-  // 3. Cancel the subscription in Stripe. Needs the mirror's Stripe provider ref;
+  // 3. Cancel the subscription at the provider. Needs the mirror's provider ref;
   //    if the mirror can't be mapped, local records are ALREADY reconciled above —
   //    log and stop rather than silently drop the reversal.
   const { data: mirror, error: mirrorErr } = await ctx.admin
     .from("subscriptions")
     .select("provider_subscription_id, status")
     .eq("id", subscriptionId)
-    .eq("provider", "stripe")
+    .eq("provider", provider)
     .maybeSingle<{ provider_subscription_id: string | null; status: string }>();
   if (mirrorErr) {
     throw new WebhookTransientError(`refund: subscription mirror lookup failed: ${mirrorErr.message}`);
   }
   if (!mirror?.provider_subscription_id) {
-    logError("stripe-webhook: refunded subscription grant has no mirror — reconciled locally, not cancelled at Stripe", new Error("no mirror"), {
+    logError("stripe-webhook: refunded subscription grant has no mirror — reconciled locally, not cancelled at provider", new Error("no mirror"), {
       tag: "billing",
+      provider,
       subscription_id: subscriptionId,
       charge_id: charge.id,
     });
     return;
   }
-  const stripeSubId = mirror.provider_subscription_id;
+  const providerSubId = mirror.provider_subscription_id;
 
   //    Idempotent: an already-cancelled sub (e.g. the admin cancelled in the
   //    dashboard first) is treated as success, never a permanent 500.
   try {
-    await ctx.stripe.subscriptions.cancel(stripeSubId);
+    if (provider === "stripe") {
+      if (!ctx.stripe) {
+        throw new Error("stripe client missing");
+      }
+      await ctx.stripe.subscriptions.cancel(providerSubId);
+    } else {
+      if (!opts.cancelProviderSubscription) {
+        throw new Error("provider cancel callback missing");
+      }
+      await opts.cancelProviderSubscription(providerSubId);
+    }
   } catch (err) {
     const code = (err as { code?: string; statusCode?: number })?.code;
     const status = (err as { statusCode?: number })?.statusCode;
@@ -1181,9 +1203,10 @@ export async function revokeAndCancelOnSubscriptionRefund(
         `refund: stripe subscription cancel failed: ${err instanceof Error ? err.message : "unknown"}`,
       );
     }
-    logInfo("stripe-webhook: refund cancel — subscription already cancelled at Stripe", {
+    logInfo("stripe-webhook: refund cancel — subscription already cancelled at provider", {
       tag: "billing",
-      stripe_subscription_id: stripeSubId,
+      provider,
+      provider_subscription_id: providerSubId,
     });
   }
 
@@ -1199,7 +1222,8 @@ export async function revokeAndCancelOnSubscriptionRefund(
   logInfo("stripe-webhook: subscription refund processed — sessions revoked + plan cancelled", {
     tag: "billing",
     subscription_id: subscriptionId,
-    stripe_subscription_id: stripeSubId,
+    provider,
+    provider_subscription_id: providerSubId,
     charge_id: charge.id,
   });
 }
