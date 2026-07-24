@@ -233,6 +233,12 @@ export default async function AdminSettingsPage() {
             initialValue={settingsMap["paypal_purchase_enabled"] === "true"}
           />
           <FeatureToggle
+            settingKey="paypal_subscription_enabled"
+            label={t("تفعيل اشتراكات PayPal المتكررة", "Enable PayPal Subscriptions")}
+            description={t("زر \"الدفع عبر باي بال\" في صفحة الاشتراك — يتطلب ضبط متغيرات PAYPAL_*. ⚠️ اتركه مُعطّلاً في الإنتاج حتى إطلاق ويب‑هوك التفعيل (#763)، وإلا يدفع الطالب دون منح دورة.", "\"Pay with PayPal\" button on /subscribe — requires PAYPAL_* env vars. ⚠️ Keep OFF in production until the activation webhook (#763) ships, else a student pays with no cycle granted.")}
+            initialValue={settingsMap["paypal_subscription_enabled"] === "true"}
+          />
+          <FeatureToggle
             settingKey="prepaid_hours_purchase_enabled"
             label={t("تفعيل شراء الساعات المدفوعة مسبقاً", "Enable Prepaid Hours Purchase")}
             description={t("إظهار بطاقة شراء الساعات في صفحة الأسعار. بدونها يختفي المسار كاملاً بما في ذلك زر PayPal.", "Show the buy-hours card on /pricing. Without it the whole prepaid rail is hidden — including the PayPal button.")}

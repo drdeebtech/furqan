@@ -84,6 +84,7 @@ const planRow = {
   currency: "usd",
   stripe_product_id: "prod_1",
   stripe_price_id: "price_1",
+  paypal_plan_id: "P-PAYPAL-1",
   is_active: true,
 };
 
@@ -136,6 +137,7 @@ describe("plans.getActivePlanByCode", () => {
       monthlyCreditCount: 8,
       priceCents: 4000,
       stripePriceId: "price_1",
+      paypalPlanId: "P-PAYPAL-1",
       isActive: true,
     });
   });

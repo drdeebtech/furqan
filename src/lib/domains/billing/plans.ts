@@ -16,7 +16,7 @@ import type { SubscriptionPlan } from "./types";
 import { logError } from "@/lib/logger";
 
 const PLAN_COLUMNS =
-  "id, plan_code, name, plan_type, monthly_credit_count, session_metadata, price_cents, currency, stripe_product_id, stripe_price_id, is_active" as const;
+  "id, plan_code, name, plan_type, monthly_credit_count, session_metadata, price_cents, currency, stripe_product_id, stripe_price_id, paypal_plan_id, is_active" as const;
 
 type PlanRow = {
   id: string;
@@ -29,6 +29,7 @@ type PlanRow = {
   currency: string;
   stripe_product_id: string;
   stripe_price_id: string;
+  paypal_plan_id: string | null;
   is_active: boolean;
 };
 
@@ -44,6 +45,7 @@ function toDomain(r: PlanRow): SubscriptionPlan {
     currency: r.currency,
     stripeProductId: r.stripe_product_id,
     stripePriceId: r.stripe_price_id,
+    paypalPlanId: r.paypal_plan_id,
     isActive: r.is_active,
   };
 }

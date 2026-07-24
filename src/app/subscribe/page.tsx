@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getActivePlanByCode } from "@/lib/domains/billing";
 import { getT } from "@/lib/i18n/server";
 import { CheckoutButton } from "./checkout-button";
+import { isPayPalConfigured } from "@/lib/paypal/client";
+import { isFeatureEnabled } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "تأكيد الاشتراك · Subscribe",
@@ -35,6 +37,12 @@ export default async function SubscribePage({ searchParams }: Props) {
   }
 
   const plan = await getActivePlanByCode(supabase, planCode);
+
+  // PayPal button renders only when the provider is BOTH configured (PAYPAL_*
+  // env) and flagged on. isPayPalConfigured() is a pure env check (server-only);
+  // the flag is the admin switch. Both re-checked server-side in the route.
+  const paypalEnabled =
+    isPayPalConfigured() && (await isFeatureEnabled("paypal_subscription_enabled"));
 
   const backArrow = dir === "rtl" ? <ArrowLeft size={14} aria-hidden="true" /> : <ArrowRight size={14} aria-hidden="true" />;
 
@@ -96,12 +104,12 @@ export default async function SubscribePage({ searchParams }: Props) {
 
               <div className="h-px bg-white/10" />
 
-              <CheckoutButton planCode={plan.planCode} />
+              <CheckoutButton planCode={plan.planCode} paypalEnabled={paypalEnabled} />
 
               <p className="text-center text-xs text-muted">
                 {t(
-                  "ستُحوَّل إلى صفحة Stripe الآمنة لإتمام الدفع",
-                  "You will be redirected to a secure Stripe page to complete payment",
+                  "ستُحوَّل إلى صفحة دفع آمنة لإتمام الاشتراك",
+                  "You will be redirected to a secure payment page to complete your subscription",
                 )}
               </p>
             </>

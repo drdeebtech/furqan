@@ -19,6 +19,12 @@ export const ALLOWED_SETTING_KEYS = [
   "courses_enabled",
   "paid_courses_enabled",
   "paypal_purchase_enabled",
+  // Spec 039 / #762 — recurring PayPal subscriptions. Gates the "Pay with
+  // PayPal" button on /subscribe (server-side). MUST stay OFF in production
+  // until the PayPal subscription-activation webhook (Phase 6 / #763) ships —
+  // otherwise a student pays and no cycle is granted. Also requires PAYPAL_*
+  // env vars set (isPayPalConfigured).
+  "paypal_subscription_enabled",
   // Spec 038 — pay-as-you-go prepaid hours. Gates the PrepaidCard on /pricing
   // (server-side); without it BOTH the card's card-payment and PayPal buttons
   // are unreachable, so the whole prepaid rail is invisible regardless of
