@@ -98,7 +98,15 @@ export interface StudentDashboardData {
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { overall_score: number | null; strengths: string | null; next_goals: string | null; evaluation_type: string; created_at: string } | null;
   /** S1 — active-subscription summary; null unless the student has one active. */
-  subscription: { planName: string | null; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+  subscription: {
+    id: string;
+    planName: string | null;
+    provider: string;
+    providerSubscriptionId: string | null;
+    status: string;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+  } | null;
   /** S2 — unread messages across the student's conversations. */
   unreadMessages: number;
   goal: GoalDashboardData | null;
@@ -393,11 +401,19 @@ export async function studentDashboardView(
       .returns<{ id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[]>(),
     // S1 — active subscription (plan_id resolved to a name in a follow-up read).
     supabase.from("subscriptions")
-      .select("plan_id, status, current_period_end, cancel_at_period_end")
+      .select("id, plan_id, provider, provider_subscription_id, status, current_period_end, cancel_at_period_end")
       .eq("student_id", studentId).eq("status", "active")
       .order("current_period_end", { ascending: false })
       .limit(1)
-      .maybeSingle<{ plan_id: string; status: string; current_period_end: string | null; cancel_at_period_end: boolean }>(),
+      .maybeSingle<{
+        id: string;
+        plan_id: string;
+        provider: string;
+        provider_subscription_id: string | null;
+        status: string;
+        current_period_end: string | null;
+        cancel_at_period_end: boolean;
+      }>(),
     // S2 — unread messages; skip the query when the student has no conversations.
     convIds.length > 0
       ? unreadMessagesFilter(supabase, convIds, studentId)
@@ -484,7 +500,10 @@ export async function studentDashboardView(
   const subscriptionLoad = loadOrFail(subscriptionRes, null, { route: ROUTE, widget: "subscription" });
   anyFailed = anyFailed || subscriptionLoad.failed;
   let subscription: {
+    id: string;
     planName: string | null;
+    provider: string;
+    providerSubscriptionId: string | null;
     status: string;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
@@ -497,7 +516,10 @@ export async function studentDashboardView(
     const planLoad = loadOrFail(planRes, null, { route: ROUTE, widget: "subscription-plan" });
     anyFailed = anyFailed || planLoad.failed;
     subscription = {
+      id: sub.id,
       planName: planLoad.data ? planLoad.data.name : null,
+      provider: sub.provider,
+      providerSubscriptionId: sub.provider_subscription_id,
       status: sub.status,
       currentPeriodEnd: sub.current_period_end,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
