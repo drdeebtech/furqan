@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle, Clock, Briefcase, Keyboard, MessageSquare, RefreshCw, Sparkles } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -19,6 +19,7 @@ import { GoalCard } from "./goal-card";
 import { AchievementShelf } from "./achievement-shelf";
 import { UpgradeNudgeCard } from "./upgrade-nudge-card";
 import { PrepaidWalletCard, type PrepaidWalletData } from "./prepaid-wallet-card";
+import { CancelSubscriptionDialog } from "./cancel-subscription-dialog";
 import type { GoalDashboardData } from "@/lib/domains/goals/goals";
 
 interface DashboardData {
@@ -41,7 +42,15 @@ interface DashboardData {
   todaySessions: { id: string; teacher_id: string; scheduled_at: string | null; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { overall_score: number | null; strengths: string | null; next_goals: string | null; evaluation_type: string; created_at: string } | null;
-  subscription: { planName: string | null; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+  subscription: {
+    id: string;
+    planName: string | null;
+    provider: string;
+    providerSubscriptionId: string | null;
+    status: string;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+  } | null;
   unreadMessages: number;
   goal: GoalDashboardData | null;
   achievements: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[];
@@ -86,6 +95,7 @@ function StudentDashboardContentInner({
     homeworkPulse, todaySessions, todayHomework, latestEvaluation,
     goal, achievements, prepaidWallet, subscription, unreadMessages, renderedAtMs,
   } = data;
+  const [confirmedCancelSubscriptionId, setConfirmedCancelSubscriptionId] = useState<string | null>(null);
 
   const paymentToastShownRef = useRef(false);
   useEffect(() => {
@@ -176,6 +186,16 @@ function StudentDashboardContentInner({
   const surahLabel = surahName(surahNum, lang === "ar" ? "ar" : "en");
 
   const teacherNameForBanner = nextBooking ? nameMap[nextBooking.teacher_id] ?? null : null;
+  const subscriptionCancelsAtPeriodEnd = Boolean(
+    subscription?.cancelAtPeriodEnd || (subscription && subscription.id === confirmedCancelSubscriptionId),
+  );
+  const canCancelPayPalSubscription = Boolean(
+    subscription
+      && subscription.provider === "paypal"
+      && subscription.status === "active"
+      && subscription.providerSubscriptionId
+      && !subscriptionCancelsAtPeriodEnd,
+  );
 
   // Today's Plan items — sorted chronologically.
   const todaysPlanItems = useMemo(() => {
@@ -388,17 +408,23 @@ function StudentDashboardContentInner({
                   </div>
                   <span
                     className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
-                      subscription.cancelAtPeriodEnd
+                      subscriptionCancelsAtPeriodEnd
                         ? "border-warning/40 bg-warning/10 text-warning"
                         : "border-success/40 bg-success/10 text-success"
                     }`}
                   >
-                    {subscription.cancelAtPeriodEnd ? t("يُلغى نهاية الفترة", "Cancels at period end") : t("نشط", "Active")}
+                    {subscriptionCancelsAtPeriodEnd ? t("يُلغى نهاية الفترة", "Cancels at period end") : t("نشط", "Active")}
                   </span>
+                  {canCancelPayPalSubscription && (
+                    <CancelSubscriptionDialog
+                      currentPeriodEnd={subscription.currentPeriodEnd}
+                      onCanceled={() => setConfirmedCancelSubscriptionId(subscription.id)}
+                    />
+                  )}
                 </div>
                 {subscription.currentPeriodEnd && (
                   <p className="mt-3 text-sm text-muted">
-                    {subscription.cancelAtPeriodEnd ? t("ينتهي في", "Ends on") : t("يتجدد في", "Renews on")}{" "}
+                    {subscriptionCancelsAtPeriodEnd ? t("ينتهي في", "Ends on") : t("يتجدد في", "Renews on")}{" "}
                     <span className="font-medium text-foreground">
                       {new Date(subscription.currentPeriodEnd).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}
                     </span>

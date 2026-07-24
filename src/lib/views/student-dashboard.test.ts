@@ -503,7 +503,10 @@ describe("studentDashboardView", () => {
         { count: 1, error: null },
         {
           data: {
+            id: "sub-9",
             plan_id: "plan-9",
+            provider: "paypal",
+            provider_subscription_id: "I-PAYPAL-123",
             status: "active",
             current_period_end: "2026-08-01T00:00:00Z",
             cancel_at_period_end: false,
@@ -533,7 +536,10 @@ describe("studentDashboardView", () => {
 
     // S1 — active subscription summarized with the resolved plan name.
     expect(result.data.subscription).toEqual({
+      id: "sub-9",
       planName: "Hifz Premium",
+      provider: "paypal",
+      providerSubscriptionId: "I-PAYPAL-123",
       status: "active",
       currentPeriodEnd: "2026-08-01T00:00:00Z",
       cancelAtPeriodEnd: false,
