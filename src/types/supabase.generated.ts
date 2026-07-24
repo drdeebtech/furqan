@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -8161,6 +8166,10 @@ export type Database = {
         Args: { p_actual_duration: number; p_session_id: string }
         Returns: string
       }
+      enroll_participant: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: undefined
+      }
       finalize_attendance: {
         Args: {
           p_actual_teacher_id?: string
@@ -8318,6 +8327,10 @@ export type Database = {
       redact_pii: { Args: { payload: Json }; Returns: Json }
       refund_package_session: {
         Args: { p_package_id: string }
+        Returns: boolean
+      }
+      release_participant: {
+        Args: { p_session_id: string; p_user_id: string }
         Returns: boolean
       }
       release_prepaid_refund: {
@@ -8880,4 +8893,3 @@ export const Constants = {
     },
   },
 } as const
-
