@@ -583,4 +583,171 @@ describe("PayPal recurring client", () => {
       verifyPayPalWebhookSignature(webhookHeaders(), '{"id":"evt-1"}'),
     ).resolves.toBe(false);
   });
+
+  const ORDER_ARGS = {
+    amountUsd: 40,
+    referenceId: "ref-1",
+    customId: "cust-1",
+    description: "Single session",
+    returnUrl: "https://furqan.test/return",
+    cancelUrl: "https://furqan.test/cancel",
+  };
+
+  it("creates an order and returns the approve link", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "ORD-1",
+          links: [{ rel: "approve", href: "https://paypal.test/approve" }],
+        }),
+      );
+
+    const { createPayPalOrder } = await loadClient();
+    await expect(createPayPalOrder(ORDER_ARGS)).resolves.toEqual({
+      orderId: "ORD-1",
+      approveUrl: "https://paypal.test/approve",
+    });
+  });
+
+  it("falls back to the payer-action link when approve is absent", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "ORD-1",
+          links: [{ rel: "payer-action", href: "https://paypal.test/payer" }],
+        }),
+      );
+
+    const { createPayPalOrder } = await loadClient();
+    await expect(createPayPalOrder(ORDER_ARGS)).resolves.toEqual({
+      orderId: "ORD-1",
+      approveUrl: "https://paypal.test/payer",
+    });
+  });
+
+  it("throws when create-order lacks an id or an approve link", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ id: "ORD-1", links: [] }));
+
+    const { createPayPalOrder } = await loadClient();
+    await expect(createPayPalOrder(ORDER_ARGS)).rejects.toThrow(
+      "missing approve link",
+    );
+  });
+
+  it("captures an order and extracts capture id, amount, payer, and custom_id", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          purchase_units: [
+            {
+              custom_id: "cust-1",
+              payments: {
+                captures: [
+                  {
+                    id: "CAP-1",
+                    status: "COMPLETED",
+                    amount: { currency_code: "USD", value: "40.00" },
+                  },
+                ],
+              },
+            },
+          ],
+          payer: { email_address: "payer@example.com" },
+        }),
+      );
+
+    const { capturePayPalOrder } = await loadClient();
+    await expect(capturePayPalOrder("ORD-1")).resolves.toEqual({
+      captureId: "CAP-1",
+      status: "COMPLETED",
+      amountUsd: 40,
+      payerEmail: "payer@example.com",
+      customId: "cust-1",
+    });
+  });
+
+  it("throws when a capture response has no capture id", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ purchase_units: [{}] }));
+
+    const { capturePayPalOrder } = await loadClient();
+    await expect(capturePayPalOrder("ORD-1")).rejects.toThrow(
+      "missing capture id/status",
+    );
+  });
+
+  it("throws when a capture amount is missing or non-numeric", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          purchase_units: [
+            {
+              payments: {
+                captures: [{ id: "CAP-1", status: "COMPLETED" }],
+              },
+            },
+          ],
+        }),
+      );
+
+    const { capturePayPalOrder } = await loadClient();
+    await expect(capturePayPalOrder("ORD-1")).rejects.toThrow(
+      "missing/invalid amount",
+    );
+  });
+
+  it("reads an already-captured order via get-order", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "COMPLETED",
+          purchase_units: [
+            {
+              custom_id: "cust-1",
+              amount: { value: "40.00" },
+              payments: {
+                captures: [
+                  { id: "CAP-1", amount: { value: "40.00" } },
+                ],
+              },
+            },
+          ],
+        }),
+      );
+
+    const { getPayPalOrder } = await loadClient();
+    await expect(getPayPalOrder("ORD-1")).resolves.toEqual({
+      status: "COMPLETED",
+      captureId: "CAP-1",
+      amountUsd: 40,
+      customId: "cust-1",
+    });
+  });
+
+  it("returns a null captureId for an order not yet captured", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "APPROVED",
+          purchase_units: [{ custom_id: "cust-1", amount: { value: "40.00" } }],
+        }),
+      );
+
+    const { getPayPalOrder } = await loadClient();
+    await expect(getPayPalOrder("ORD-1")).resolves.toEqual({
+      status: "APPROVED",
+      captureId: null,
+      amountUsd: 40,
+      customId: "cust-1",
+    });
+  });
 });
