@@ -1,5 +1,7 @@
 import "server-only";
 
+import { logError } from "@/lib/logger";
+
 /**
  * Server-only PayPal REST client (spec 039 — PayPal as interim processor).
  *
@@ -76,6 +78,39 @@ export interface GetPayPalOrderResult {
   customId: string | null;
 }
 
+export interface CreatePayPalProductResult {
+  productId: string;
+}
+
+export interface CreatePayPalPlanResult {
+  planId: string;
+  status: string;
+}
+
+export interface CreatePayPalSubscriptionResult {
+  subscriptionId: string;
+  status: string;
+  approveUrl: string;
+}
+
+export interface GetPayPalSubscriptionResult {
+  subscriptionId: string;
+  status: string;
+  planId: string | null;
+  customId: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+}
+
+export interface CancelPayPalSubscriptionResult {
+  ok: true;
+}
+
+export interface RevisePayPalSubscriptionResult {
+  status: string;
+  approveUrl: string | null;
+}
+
 // ── Token cache (module-level) ───────────────────────────────────────────────
 // PayPal access tokens last ~9h (sandbox) / ~32400s. We cache one in-memory
 // and refresh it ~60s before expiry so a request mid-flight at the boundary
@@ -92,6 +127,10 @@ interface CachedToken {
 
 const REFRESH_MARGIN_MS = 60_000;
 let cachedToken: CachedToken | null = null;
+
+function invalidatePayPalToken(): void {
+  cachedToken = null;
+}
 
 // ── Network timeout ──────────────────────────────────────────────────────────
 // PayPal fetches (token, create-order, capture, get-order, verify-webhook) all
@@ -177,6 +216,117 @@ async function authedJsonHeaders(): Promise<Record<string, string>> {
     "Content-Type": "application/json",
   };
 }
+
+interface PayPalRequestOptions {
+  body?: unknown;
+  requestId?: string;
+  expectNoContent?: boolean;
+}
+
+interface PayPalErrorBody {
+  name?: unknown;
+  message?: unknown;
+  debug_id?: unknown;
+  details?: unknown;
+}
+
+class PayPalHandledRequestError extends Error {}
+
+async function buildPayPalRequestHeaders(
+  requestId: string | undefined,
+): Promise<Record<string, string>> {
+  const token = await getPayPalAccessToken();
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+  if (requestId) {
+    headers["PayPal-Request-Id"] = requestId;
+  }
+  return headers;
+}
+
+async function readPayPalErrorBody(res: Response): Promise<PayPalErrorBody> {
+  try {
+    return (await res.json()) as PayPalErrorBody;
+  } catch {
+    return {};
+  }
+}
+
+function paypalDebugId(err: PayPalErrorBody): string | undefined {
+  return typeof err.debug_id === "string" ? err.debug_id : undefined;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- PayPal responses are endpoint-specific; exported callers narrow the parsed JSON. */
+async function paypalRequest(
+  op: string,
+  method: string,
+  path: string,
+  opts: PayPalRequestOptions = {},
+): Promise<any> {
+  try {
+    if (!PAYPAL_API_BASE) {
+      throw new PayPalHandledRequestError(
+        "PayPal is not configured: PAYPAL_API_BASE is missing.",
+      );
+    }
+
+    const url = `${PAYPAL_API_BASE}${path}`;
+    const requestBody =
+      opts.body === undefined ? undefined : JSON.stringify(opts.body);
+
+    let headers = await buildPayPalRequestHeaders(opts.requestId);
+    let res = await fetchPayPal(url, {
+      method,
+      headers,
+      body: requestBody,
+    });
+
+    if (res.status === 401) {
+      invalidatePayPalToken();
+      headers = await buildPayPalRequestHeaders(opts.requestId);
+      res = await fetchPayPal(url, {
+        method,
+        headers,
+        body: requestBody,
+      });
+    }
+
+    if (!res.ok) {
+      const err = await readPayPalErrorBody(res);
+      logError(`paypal: ${op} failed`, err, {
+        tag: "paypal",
+        status: res.status,
+        debug_id: paypalDebugId(err),
+      });
+      throw new PayPalHandledRequestError(
+        `PayPal ${op} request failed: ${res.status} ${res.statusText}`,
+      );
+    }
+
+    if (opts.expectNoContent) {
+      return null;
+    }
+
+    try {
+      return await res.json();
+    } catch (error) {
+      logError(`paypal: ${op} failed`, error, { tag: "paypal" });
+      throw new PayPalHandledRequestError(
+        `PayPal ${op} response parse failed`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof PayPalHandledRequestError) {
+      throw error;
+    }
+
+    logError(`paypal: ${op} failed`, error, { tag: "paypal" });
+    throw new Error(`PayPal ${op} request failed.`);
+  }
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
  * Creates a PayPal order (intent: CAPTURE) with one purchase_unit and a
@@ -379,6 +529,203 @@ export async function getPayPalOrder(orderId: string): Promise<GetPayPalOrderRes
     captureId: capture?.id ?? null,
     amountUsd: Number.isFinite(amountUsd) ? amountUsd : null,
     customId: capture?.custom_id ?? purchaseUnit?.custom_id ?? null,
+  };
+}
+
+// ── Recurring subscriptions ──────────────────────────────────────────────────
+
+export async function createPayPalProduct(args: {
+  name: string;
+  description?: string;
+  requestId?: string;
+}): Promise<CreatePayPalProductResult> {
+  const body = {
+    name: args.name,
+    ...(args.description ? { description: args.description } : {}),
+    type: "SERVICE",
+    category: "SOFTWARE",
+  };
+
+  const json = (await paypalRequest("create-product", "POST", "/v1/catalogs/products", {
+    body,
+    requestId: args.requestId,
+  })) as { id?: string };
+
+  if (!json.id) {
+    throw new Error(`PayPal create-product response missing id`);
+  }
+
+  return { productId: json.id };
+}
+
+export async function createPayPalPlan(args: {
+  productId: string;
+  name: string;
+  amountUsd: number;
+  intervalMonths?: number;
+  requestId?: string;
+}): Promise<CreatePayPalPlanResult> {
+  const intervalMonths = args.intervalMonths ?? 1;
+  const body = {
+    product_id: args.productId,
+    name: args.name,
+    billing_cycles: [
+      {
+        frequency: {
+          interval_unit: "MONTH",
+          interval_count: intervalMonths,
+        },
+        tenure_type: "REGULAR",
+        sequence: 1,
+        total_cycles: 0,
+        pricing_scheme: {
+          fixed_price: {
+            value: args.amountUsd.toFixed(2),
+            currency_code: "USD",
+          },
+        },
+      },
+    ],
+    payment_preferences: {
+      auto_bill_outstanding: true,
+      setup_fee_failure_action: "CANCEL",
+      payment_failure_threshold: 1,
+    },
+  };
+
+  const json = (await paypalRequest("create-plan", "POST", "/v1/billing/plans", {
+    body,
+    requestId: args.requestId,
+  })) as { id?: string; status?: string };
+
+  if (!json.id || !json.status) {
+    throw new Error(`PayPal create-plan response missing id/status`);
+  }
+
+  return { planId: json.id, status: json.status };
+}
+
+export async function createPayPalSubscription(args: {
+  planId: string;
+  customId: string;
+  returnUrl: string;
+  cancelUrl: string;
+  requestId?: string;
+}): Promise<CreatePayPalSubscriptionResult> {
+  const body = {
+    plan_id: args.planId,
+    custom_id: args.customId,
+    application_context: {
+      return_url: args.returnUrl,
+      cancel_url: args.cancelUrl,
+      user_action: "SUBSCRIBE_NOW",
+      shipping_preference: "NO_SHIPPING",
+    },
+  };
+
+  const json = (await paypalRequest(
+    "create-subscription",
+    "POST",
+    "/v1/billing/subscriptions",
+    {
+      body,
+      requestId: args.requestId,
+    },
+  )) as {
+    id?: string;
+    status?: string;
+    links?: Array<{ href?: string; rel?: string; method?: string }>;
+  };
+
+  if (!json.id || !json.status) {
+    throw new Error(`PayPal create-subscription response missing id/status`);
+  }
+
+  const approveLink = json.links?.find((l) => l.rel === "approve");
+  if (!approveLink?.href) {
+    throw new Error(`PayPal create-subscription response missing approve link`);
+  }
+
+  return {
+    subscriptionId: json.id,
+    status: json.status,
+    approveUrl: approveLink.href,
+  };
+}
+
+export async function getPayPalSubscription(
+  subscriptionId: string,
+): Promise<GetPayPalSubscriptionResult> {
+  const json = (await paypalRequest(
+    "get-subscription",
+    "GET",
+    `/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}`,
+  )) as {
+    id?: string;
+    status?: string;
+    plan_id?: string;
+    custom_id?: string;
+    billing_info?: {
+      last_payment?: { time?: string };
+      next_billing_time?: string;
+    };
+  };
+
+  return {
+    subscriptionId: json.id ?? subscriptionId,
+    status: json.status ?? "UNKNOWN",
+    planId: json.plan_id ?? null,
+    customId: json.custom_id ?? null,
+    currentPeriodStart: json.billing_info?.last_payment?.time ?? null,
+    currentPeriodEnd: json.billing_info?.next_billing_time ?? null,
+  };
+}
+
+export async function cancelPayPalSubscription(
+  subscriptionId: string,
+  reason: string,
+): Promise<CancelPayPalSubscriptionResult> {
+  await paypalRequest(
+    "cancel-subscription",
+    "POST",
+    `/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`,
+    {
+      body: { reason },
+      expectNoContent: true,
+    },
+  );
+
+  return { ok: true };
+}
+
+export async function revisePayPalSubscription(args: {
+  subscriptionId: string;
+  planId: string;
+  requestId?: string;
+}): Promise<RevisePayPalSubscriptionResult> {
+  const json = (await paypalRequest(
+    "revise-subscription",
+    "POST",
+    `/v1/billing/subscriptions/${encodeURIComponent(args.subscriptionId)}/revise`,
+    {
+      body: { plan_id: args.planId },
+      requestId: args.requestId,
+    },
+  )) as {
+    status?: string;
+    links?: Array<{ href?: string; rel?: string; method?: string }>;
+  };
+
+  // A revise is a state-changing billing-plan change; a response with no status
+  // is unrecognized, so fail loud (matching createPayPalPlan / createPayPalSubscription)
+  // rather than silently returning "UNKNOWN" as if the change had completed.
+  if (!json.status) {
+    throw new Error(`PayPal revise-subscription response missing status`);
+  }
+
+  return {
+    status: json.status,
+    approveUrl: json.links?.find((l) => l.rel === "approve")?.href ?? null,
   };
 }
 
