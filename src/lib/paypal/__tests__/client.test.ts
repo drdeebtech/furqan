@@ -57,6 +57,24 @@ function requestBody(init: RequestInit | undefined): Record<string, unknown> {
   return JSON.parse(String(init?.body)) as Record<string, unknown>;
 }
 
+function webhookHeaders(overrides: Record<string, string | null> = {}): Headers {
+  const base: Record<string, string> = {
+    "paypal-auth-algo": "SHA256withRSA",
+    "paypal-cert-url": "https://api.paypal.test/cert",
+    "paypal-transmission-id": "tid-1",
+    "paypal-transmission-sig": "sig-1",
+    "paypal-transmission-time": "2026-07-24T00:00:00Z",
+  };
+  const headers = new Headers(base);
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === null) {
+      headers.delete(key);
+    } else {
+      headers.set(key, value);
+    }
+  }
+  return headers;
+}
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
@@ -147,6 +165,7 @@ describe("PayPal recurring client", () => {
         debug_id: "dbg123",
       }),
     );
+    expect(logErrorMock).toHaveBeenCalledTimes(1);
   });
 
   it("sends PayPal-Request-Id for plan and subscription creation", async () => {
@@ -291,5 +310,277 @@ describe("PayPal recurring client", () => {
     await expect(
       cancelPayPalSubscription("S-1", "student canceled"),
     ).resolves.toEqual({ ok: true });
+  });
+
+  it("throws when create-product response is missing id", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({}));
+
+    const { createPayPalProduct } = await loadClient();
+
+    await expect(createPayPalProduct({ name: "Monthly" })).rejects.toThrow(
+      "missing id",
+    );
+  });
+
+  it("throws when create-plan response is missing id or status", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ id: "P-1" }));
+
+    const { createPayPalPlan } = await loadClient();
+
+    await expect(
+      createPayPalPlan({ productId: "PROD-1", name: "Monthly", amountUsd: 19 }),
+    ).rejects.toThrow("missing id/status");
+  });
+
+  it("throws when create-subscription response is missing id or status", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ id: "S-1" }));
+
+    const { createPayPalSubscription } = await loadClient();
+
+    await expect(
+      createPayPalSubscription({
+        planId: "P-1",
+        customId: "c",
+        returnUrl: "https://furqan.test/return",
+        cancelUrl: "https://furqan.test/cancel",
+      }),
+    ).rejects.toThrow("missing id/status");
+  });
+
+  it("throws when create-subscription response lacks an approve link", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(
+        jsonResponse({ id: "S-1", status: "APPROVAL_PENDING", links: [] }),
+      );
+
+    const { createPayPalSubscription } = await loadClient();
+
+    await expect(
+      createPayPalSubscription({
+        planId: "P-1",
+        customId: "c",
+        returnUrl: "https://furqan.test/return",
+        cancelUrl: "https://furqan.test/cancel",
+      }),
+    ).rejects.toThrow("missing approve link");
+  });
+
+  it("falls back to the argument id when the get response omits id", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ status: "ACTIVE" }));
+
+    const { getPayPalSubscription } = await loadClient();
+
+    await expect(getPayPalSubscription("S-9")).resolves.toMatchObject({
+      subscriptionId: "S-9",
+      status: "ACTIVE",
+    });
+  });
+
+  it("revises a subscription: returns status + approveUrl and sends the request id", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "ACTIVE",
+          links: [
+            { rel: "approve", href: "https://paypal.test/revise-approve" },
+          ],
+        }),
+      );
+
+    const { revisePayPalSubscription } = await loadClient();
+
+    await expect(
+      revisePayPalSubscription({
+        subscriptionId: "S-1",
+        planId: "P-2",
+        requestId: "rev-req-1",
+      }),
+    ).resolves.toEqual({
+      status: "ACTIVE",
+      approveUrl: "https://paypal.test/revise-approve",
+    });
+
+    const call = callForPath("/v1/billing/subscriptions/S-1/revise");
+    expect(requestHeaders(call[1])["PayPal-Request-Id"]).toBe("rev-req-1");
+  });
+
+  it("revise returns null approveUrl when no re-approval is required", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ status: "ACTIVE" }));
+
+    const { revisePayPalSubscription } = await loadClient();
+
+    await expect(
+      revisePayPalSubscription({ subscriptionId: "S-1", planId: "P-2" }),
+    ).resolves.toEqual({ status: "ACTIVE", approveUrl: null });
+  });
+
+  it("revise throws when the response is missing status", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ links: [] }));
+
+    const { revisePayPalSubscription } = await loadClient();
+
+    await expect(
+      revisePayPalSubscription({ subscriptionId: "S-1", planId: "P-2" }),
+    ).rejects.toThrow("PayPal revise-subscription response missing status");
+  });
+
+  it("wraps a network failure in a generic error and logs it", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockRejectedValueOnce(new Error("ECONNRESET"));
+
+    const { logError } = await import("@/lib/logger");
+    const logErrorMock = vi.mocked(logError);
+    const { createPayPalProduct } = await loadClient();
+
+    let thrown: Error | null = null;
+    try {
+      await createPayPalProduct({ name: "Monthly" });
+    } catch (error) {
+      thrown = error as Error;
+    }
+
+    expect(thrown?.message).toBe("PayPal create-product request failed.");
+    expect(thrown?.message).not.toContain("ECONNRESET");
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "paypal: create-product failed",
+      expect.any(Error),
+      expect.objectContaining({ tag: "paypal" }),
+    );
+  });
+
+  it("logs a non-2xx error with an undefined debug_id when the body has none", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { message: "nope" },
+          { status: 400, statusText: "Bad Request" },
+        ),
+      );
+
+    const { logError } = await import("@/lib/logger");
+    const logErrorMock = vi.mocked(logError);
+    const { createPayPalProduct } = await loadClient();
+
+    await expect(createPayPalProduct({ name: "Monthly" })).rejects.toThrow(
+      "400 Bad Request",
+    );
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "paypal: create-product failed",
+      expect.anything(),
+      expect.objectContaining({ tag: "paypal", debug_id: undefined }),
+    );
+  });
+
+  it("includes an optional product description when provided", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ id: "PROD-1" }));
+
+    const { createPayPalProduct } = await loadClient();
+    await createPayPalProduct({ name: "Monthly", description: "Hifz plan" });
+
+    const body = requestBody(callForPath("/v1/catalogs/products")[1]);
+    expect(body.description).toBe("Hifz plan");
+  });
+
+  it("honors an explicit billing interval on plan creation", async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ id: "P-1", status: "ACTIVE" }));
+
+    const { createPayPalPlan } = await loadClient();
+    await createPayPalPlan({
+      productId: "PROD-1",
+      name: "Quarterly",
+      amountUsd: 50,
+      intervalMonths: 3,
+    });
+
+    const body = requestBody(callForPath("/v1/billing/plans")[1]);
+    const cycle = (body.billing_cycles as Array<Record<string, unknown>>)[0];
+    const frequency = cycle.frequency as Record<string, unknown>;
+    expect(frequency.interval_count).toBe(3);
+    const pricing = cycle.pricing_scheme as Record<string, unknown>;
+    const fixed = pricing.fixed_price as Record<string, unknown>;
+    expect(fixed.value).toBe("50.00");
+  });
+
+  it("verify throws when PAYPAL_WEBHOOK_ID is unset", async () => {
+    delete process.env.PAYPAL_WEBHOOK_ID;
+    const { verifyPayPalWebhookSignature } = await loadClient();
+    await expect(
+      verifyPayPalWebhookSignature(webhookHeaders(), "{}"),
+    ).rejects.toThrow("PAYPAL_WEBHOOK_ID is not set");
+  });
+
+  it("verify returns false when a transmission header is missing", async () => {
+    process.env.PAYPAL_WEBHOOK_ID = "WH-1";
+    const { verifyPayPalWebhookSignature } = await loadClient();
+    await expect(
+      verifyPayPalWebhookSignature(
+        webhookHeaders({ "paypal-transmission-sig": null }),
+        "{}",
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it("verify returns false on a malformed body", async () => {
+    process.env.PAYPAL_WEBHOOK_ID = "WH-1";
+    const { verifyPayPalWebhookSignature } = await loadClient();
+    await expect(
+      verifyPayPalWebhookSignature(webhookHeaders(), "{"),
+    ).resolves.toBe(false);
+  });
+
+  it("verify returns true when PayPal reports SUCCESS", async () => {
+    process.env.PAYPAL_WEBHOOK_ID = "WH-1";
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ verification_status: "SUCCESS" }));
+
+    const { verifyPayPalWebhookSignature } = await loadClient();
+    await expect(
+      verifyPayPalWebhookSignature(webhookHeaders(), '{"id":"evt-1"}'),
+    ).resolves.toBe(true);
+  });
+
+  it("verify returns false when PayPal does not report SUCCESS", async () => {
+    process.env.PAYPAL_WEBHOOK_ID = "WH-1";
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({ verification_status: "FAILURE" }));
+
+    const { verifyPayPalWebhookSignature } = await loadClient();
+    await expect(
+      verifyPayPalWebhookSignature(webhookHeaders(), '{"id":"evt-1"}'),
+    ).resolves.toBe(false);
+  });
+
+  it("verify returns false when the verify endpoint is non-2xx", async () => {
+    process.env.PAYPAL_WEBHOOK_ID = "WH-1";
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse("tok-1"))
+      .mockResolvedValueOnce(jsonResponse({}, { status: 500 }));
+
+    const { verifyPayPalWebhookSignature } = await loadClient();
+    await expect(
+      verifyPayPalWebhookSignature(webhookHeaders(), '{"id":"evt-1"}'),
+    ).resolves.toBe(false);
   });
 });

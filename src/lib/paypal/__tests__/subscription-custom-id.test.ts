@@ -88,4 +88,36 @@ describe("subscription custom_id codec", () => {
       extra: null,
     });
   });
+
+  it("rejects an inbound custom_id longer than 127 characters", () => {
+    const overlong = `v1|subscription|${STUDENT_ID}|${"x".repeat(130)}`;
+    expect(overlong.length).toBeGreaterThan(127);
+    expect(parseSubscriptionCustomId(overlong)).toBeNull();
+  });
+
+  it("throws when a build field contains the '|' delimiter", () => {
+    expect(() =>
+      buildSubscriptionCustomId({
+        productType: "subscription",
+        studentId: STUDENT_ID,
+        planCode: "mon|thly",
+      }),
+    ).toThrow("must not contain '|'");
+  });
+
+  it("round-trips an empty-string extra", () => {
+    const customId = buildSubscriptionCustomId({
+      productType: "subscription_upgrade",
+      studentId: STUDENT_ID,
+      planCode: "pro",
+      extra: "",
+    });
+
+    expect(parseSubscriptionCustomId(customId)).toEqual({
+      productType: "subscription_upgrade",
+      studentId: STUDENT_ID,
+      planCode: "pro",
+      extra: "",
+    });
+  });
 });

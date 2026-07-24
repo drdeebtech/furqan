@@ -716,8 +716,15 @@ export async function revisePayPalSubscription(args: {
     links?: Array<{ href?: string; rel?: string; method?: string }>;
   };
 
+  // A revise is a state-changing billing-plan change; a response with no status
+  // is unrecognized, so fail loud (matching createPayPalPlan / createPayPalSubscription)
+  // rather than silently returning "UNKNOWN" as if the change had completed.
+  if (!json.status) {
+    throw new Error(`PayPal revise-subscription response missing status`);
+  }
+
   return {
-    status: json.status ?? "UNKNOWN",
+    status: json.status,
     approveUrl: json.links?.find((l) => l.rel === "approve")?.href ?? null,
   };
 }

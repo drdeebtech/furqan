@@ -73,6 +73,11 @@ export function parseSubscriptionCustomId(
   opts?: { knownPlanCodes?: Set<string> },
 ): ParsedSubscriptionCustomId | null {
   try {
+    // A custom_id longer than PayPal's cap cannot be one we built — reject
+    // before splitting (defense-in-depth; mirrors the build-side length guard).
+    if (customId.length > MAX_PAYPAL_CUSTOM_ID_LENGTH) {
+      return null;
+    }
     const fields = customId.split("|");
     if (fields.length !== 4 && fields.length !== 5) {
       return null;
