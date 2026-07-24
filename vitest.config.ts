@@ -50,6 +50,12 @@ export default defineConfig({
         // Vercel / Edge Config runtime — env-dependent, no unit test surface.
         "src/lib/edge-config.ts",
         "src/lib/settings.ts",
+        // Operational bootstrap scripts (e.g. paypal-bootstrap-plans.ts) drive
+        // live external provider APIs (Stripe/PayPal) — their value is the live
+        // run, not unit coverage. Their pure logic (price/migration builders) IS
+        // unit-tested in scripts/__tests__/, and those tests still run; only the
+        // network-driven source is excluded from the coverage %.
+        "scripts/**",
       ],
       thresholds: {
         lines: 80,
