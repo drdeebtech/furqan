@@ -74,6 +74,7 @@ import { POST as paypalWebhookPost } from "../../webhook/route";
 import {
   buildPaypalSingleSessionCustomId,
   grantPaypalSingleSessionCapture,
+  parseSingleSessionCustomId,
 } from "@/lib/paypal/grant";
 
 const STUDENT_ID = "00000000-0000-4000-8000-000000000001";
@@ -207,7 +208,41 @@ describe("POST /api/paypal/checkout/single-session", () => {
       expect.objectContaining({
         amountUsd: 5,
         referenceId: STUDENT_ID,
-        customId: expect.stringMatching(/^single_session:[^:]+:a:500:[^:]+:/),
+        customId: expect.stringMatching(
+          /^single_session:[^:]+:a:500:[^:]+:aGlmeg$/,
+        ),
+      }),
+    );
+  });
+
+  it("materializes a free instant booking without creating a PayPal order", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: "booking-free", error: null });
+    mockGetInstantPrice.mockResolvedValue(0);
+    mockCreateAdminClient.mockReturnValue({ ...routeAdmin(), rpc });
+
+    const response = await POST(
+      makeRequest({
+        productType: "instant",
+        teacherId: TEACHER_ID,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        bookingId: "booking-free",
+        message: "booking_created_free",
+      },
+    });
+    expect(mockCreatePayPalOrder).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      "start_instant_session_booking",
+      expect.objectContaining({
+        p_student_id: STUDENT_ID,
+        p_teacher_id: TEACHER_ID,
+        p_rate_snapshot: 0,
+        p_amount_usd: 0,
       }),
     );
   });
@@ -249,10 +284,28 @@ describe("POST /api/paypal/checkout/single-session", () => {
       expect.objectContaining({
         amountUsd: 10,
         customId: expect.stringMatching(
-          /^single_session:[^:]+:s:1000:[^:]+:/,
+          /^single_session:[^:]+:s:1000:[^:]+:c\.eyJzdXJhaCI6MzZ9$/,
         ),
       }),
     );
+  });
+
+  it("fails closed when an instant custom_id timestamp is outside the Date range", () => {
+    const customId = buildPaypalSingleSessionCustomId({
+      studentId: STUDENT_ID,
+      teacherId: TEACHER_ID,
+      bookingType: "instant",
+      priceCents: 700,
+      specialty: null,
+      purpose: null,
+      targetScope: null,
+      scheduledAt: null,
+    });
+    if (!customId) throw new Error("test custom_id did not encode");
+    const segments = customId.split(":");
+    segments[5] = Number.MAX_SAFE_INTEGER.toString(36);
+
+    expect(parseSingleSessionCustomId(segments.join(":"))).toBeNull();
   });
 
   it("records one PayPal payment and materializes one booking after capture", async () => {
@@ -278,8 +331,18 @@ describe("POST /api/paypal/checkout/single-session", () => {
       provider: "paypal",
       paypal_order_id: "ORDER-1",
       paypal_capture_id: "CAPTURE-1",
+      amount_usd: 5,
     });
     expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith(
+      "create_single_session_booking",
+      expect.objectContaining({
+        p_student_id: STUDENT_ID,
+        p_teacher_id: TEACHER_ID,
+        p_booking_product_type: "assessment",
+        p_payment_id: "payment-1",
+      }),
+    );
   });
 
   it("rejects a custom_id whose frozen price was changed", async () => {

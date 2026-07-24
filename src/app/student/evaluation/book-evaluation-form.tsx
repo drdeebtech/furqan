@@ -92,11 +92,19 @@ export function BookEvaluationForm({ paypalEnabled = false }: BookEvaluationForm
         body: JSON.stringify(checkoutBody),
         signal: controller.signal,
       });
-      const json: { success?: boolean; data?: { approveUrl?: string }; error?: string } =
+      const json: {
+        success?: boolean;
+        data?: { approveUrl?: string; bookingId?: string };
+        error?: string;
+      } =
         await res.json().catch(() => ({}));
 
       if (res.ok && json.success && json.data?.approveUrl) {
         window.location.assign(json.data.approveUrl);
+        return;
+      }
+      if (res.ok && json.data?.bookingId) {
+        setPhase("booked");
         return;
       }
 

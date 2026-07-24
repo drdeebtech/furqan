@@ -138,6 +138,11 @@ export function SingleSessionPurchase({
         return;
       }
 
+      if (response.ok && body.data?.bookingId) {
+        window.location.assign("/student/dashboard?single_session=success");
+        return;
+      }
+
       setError(
         body.error ??
           (lang === "ar"

@@ -92,12 +92,22 @@ export async function GET(request: Request) {
     return dashboardRedirect("paypal_pending");
   }
 
-  const grant = await grantPaypalSingleSessionCapture(createAdminClient(), {
-    captureId: capture.captureId,
-    amountUsd: capture.amountUsd,
-    customId: capture.customId,
-    orderId: query.data.token,
-  });
+  let grant: Awaited<ReturnType<typeof grantPaypalSingleSessionCapture>>;
+  try {
+    grant = await grantPaypalSingleSessionCapture(createAdminClient(), {
+      captureId: capture.captureId,
+      amountUsd: capture.amountUsd,
+      customId: capture.customId,
+      orderId: query.data.token,
+    });
+  } catch (error) {
+    logError("paypal-single-session return: grant threw", error, {
+      tag: "paypal-single-session",
+      order_id: query.data.token,
+      capture_id: capture.captureId,
+    });
+    return dashboardRedirect("paypal_failed");
+  }
   if (grant.ok) return dashboardRedirect("paypal_success");
 
   logError(

@@ -228,11 +228,13 @@ function parseInstantDetails(
   if (!/^[0-9a-z]+$/.test(details)) return null;
   const timestamp = Number.parseInt(details, 36);
   if (!Number.isSafeInteger(timestamp) || timestamp <= 0) return null;
+  const scheduledAt = new Date(timestamp);
+  if (!Number.isFinite(scheduledAt.getTime())) return null;
   return {
     specialty: null,
     purpose: null,
     targetScope: null,
-    scheduledAt: new Date(timestamp).toISOString(),
+    scheduledAt: scheduledAt.toISOString(),
   };
 }
 
