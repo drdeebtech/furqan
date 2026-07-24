@@ -22,6 +22,17 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { assertPrepaidGrantValid } from "@/lib/domains/billing/prepaid-guard";
+import {
+  getAssessmentPrice,
+  getInstantPrice,
+  getSpecializedPrice,
+  type SpecializedPurpose,
+} from "@/lib/domains/single-sessions/pricing";
+import {
+  materializeSingleSessionBooking,
+  type SingleSessionBookingType,
+} from "@/lib/domains/single-sessions/materialize";
+import { validateTargetScope } from "@/lib/domains/single-sessions/quran-validation";
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +62,215 @@ export interface GrantPaypalPrepaidCaptureArgs {
    * the audit source — the money grant is never affected either way.
    */
   orderId?: string | null;
+}
+
+const SingleSessionTargetScopeSchema = z
+  .object({
+    surah: z.number().int().optional(),
+    ayahStart: z.number().int().optional(),
+    ayahEnd: z.number().int().optional(),
+    juz: z.number().int().optional(),
+    mutoon: z.string().trim().max(200).optional(),
+    mutashabihat: z.string().trim().max(200).optional(),
+  })
+  .strict();
+
+type SingleSessionTargetScope = z.infer<typeof SingleSessionTargetScopeSchema>;
+
+export interface PaypalSingleSessionContext {
+  studentId: string;
+  bookingType: SingleSessionBookingType;
+  priceCents: number;
+  teacherId: string;
+  specialty: string | null;
+  purpose: SpecializedPurpose | null;
+  targetScope: SingleSessionTargetScope | null;
+  scheduledAt: string | null;
+}
+
+export interface GrantPaypalSingleSessionCaptureArgs {
+  captureId: string;
+  amountUsd: number;
+  customId: string | null;
+  orderId: string | null;
+}
+
+export type GrantPaypalSingleSessionCaptureResult =
+  | { ok: true; bookingId: string; duplicate: boolean }
+  | { ok: false; reason: string };
+
+const SINGLE_SESSION_TYPE_CODES = {
+  assessment: "a",
+  instant: "i",
+  specialized: "s",
+} as const;
+
+const SPECIALIZED_PURPOSE_CODES: Record<SpecializedPurpose, string> = {
+  review: "r",
+  consolidate_surah: "c",
+  memorize_mutoon: "m",
+  test_juz_mutashabihat: "j",
+};
+
+const SINGLE_SESSION_CUSTOM_ID_MAX_LENGTH = 127;
+
+function encodeUuid(uuid: string): string | null {
+  const parsed = z.uuid().safeParse(uuid);
+  if (!parsed.success) return null;
+  return Buffer.from(parsed.data.replaceAll("-", ""), "hex").toString("base64url");
+}
+
+function decodeUuid(encoded: string): string | null {
+  if (!/^[A-Za-z0-9_-]{22}$/.test(encoded)) return null;
+  const hex = Buffer.from(encoded, "base64url").toString("hex");
+  if (hex.length !== 32) return null;
+  const uuid = [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20),
+  ].join("-");
+  const parsed = z.uuid().safeParse(uuid);
+  return parsed.success ? parsed.data : null;
+}
+
+function encodeText(text: string): string {
+  return Buffer.from(text, "utf8").toString("base64url");
+}
+
+function decodeText(encoded: string): string | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(encoded)) return null;
+  return Buffer.from(encoded, "base64url").toString("utf8");
+}
+
+function singleSessionDetails(context: PaypalSingleSessionContext): string | null {
+  if (context.bookingType === "assessment") {
+    return context.specialty ? encodeText(context.specialty) : null;
+  }
+  if (context.bookingType === "instant") {
+    return context.scheduledAt
+      ? new Date(context.scheduledAt).getTime().toString(36)
+      : "-";
+  }
+  if (!context.purpose || !context.targetScope) return null;
+  const purposeCode = SPECIALIZED_PURPOSE_CODES[context.purpose];
+  return `${purposeCode}.${encodeText(JSON.stringify(context.targetScope))}`;
+}
+
+export function buildPaypalSingleSessionCustomId(
+  context: PaypalSingleSessionContext,
+): string | null {
+  const studentId = encodeUuid(context.studentId);
+  const teacherId = encodeUuid(context.teacherId);
+  const details = singleSessionDetails(context);
+  if (!studentId || !teacherId || !details) return null;
+  if (!Number.isSafeInteger(context.priceCents) || context.priceCents <= 0) return null;
+
+  const customId = [
+    "single_session",
+    studentId,
+    SINGLE_SESSION_TYPE_CODES[context.bookingType],
+    String(context.priceCents),
+    teacherId,
+    details,
+  ].join(":");
+  return customId.length <= SINGLE_SESSION_CUSTOM_ID_MAX_LENGTH ? customId : null;
+}
+
+function bookingTypeFromCode(code: string): SingleSessionBookingType | null {
+  const entry = Object.entries(SINGLE_SESSION_TYPE_CODES).find(([, value]) => value === code);
+  return entry ? (entry[0] as SingleSessionBookingType) : null;
+}
+
+function purposeFromCode(code: string): SpecializedPurpose | null {
+  const entry = Object.entries(SPECIALIZED_PURPOSE_CODES).find(([, value]) => value === code);
+  return entry ? (entry[0] as SpecializedPurpose) : null;
+}
+
+function parseSpecializedDetails(
+  details: string,
+): Pick<PaypalSingleSessionContext, "purpose" | "targetScope"> | null {
+  const separator = details.indexOf(".");
+  if (separator !== 1) return null;
+  const purpose = purposeFromCode(details.slice(0, separator));
+  const targetScopeRaw = decodeText(details.slice(separator + 1));
+  if (!purpose || !targetScopeRaw) return null;
+  try {
+    const parsed = SingleSessionTargetScopeSchema.safeParse(JSON.parse(targetScopeRaw));
+    if (!parsed.success || !validateTargetScope(parsed.data).valid) return null;
+    return { purpose, targetScope: parsed.data };
+  } catch {
+    return null;
+  }
+}
+
+function parseAssessmentDetails(
+  details: string,
+): Pick<
+  PaypalSingleSessionContext,
+  "specialty" | "purpose" | "targetScope" | "scheduledAt"
+> | null {
+  const specialty = decodeText(details);
+  if (!specialty || specialty.length > 80) return null;
+  return { specialty, purpose: null, targetScope: null, scheduledAt: null };
+}
+
+function parseInstantDetails(
+  details: string,
+): Pick<
+  PaypalSingleSessionContext,
+  "specialty" | "purpose" | "targetScope" | "scheduledAt"
+> | null {
+  if (details === "-") {
+    return { specialty: null, purpose: null, targetScope: null, scheduledAt: null };
+  }
+  if (!/^[0-9a-z]+$/.test(details)) return null;
+  const timestamp = Number.parseInt(details, 36);
+  if (!Number.isSafeInteger(timestamp) || timestamp <= 0) return null;
+  return {
+    specialty: null,
+    purpose: null,
+    targetScope: null,
+    scheduledAt: new Date(timestamp).toISOString(),
+  };
+}
+
+function parseSingleSessionDetails(
+  bookingType: SingleSessionBookingType,
+  details: string,
+): Pick<
+  PaypalSingleSessionContext,
+  "specialty" | "purpose" | "targetScope" | "scheduledAt"
+> | null {
+  if (bookingType === "assessment") {
+    return parseAssessmentDetails(details);
+  }
+  if (bookingType === "instant") {
+    return parseInstantDetails(details);
+  }
+  const specialized = parseSpecializedDetails(details);
+  return specialized
+    ? { specialty: null, ...specialized, scheduledAt: null }
+    : null;
+}
+
+export function parseSingleSessionCustomId(
+  customId: string,
+): PaypalSingleSessionContext | null {
+  const segments = customId.split(":");
+  if (segments.length !== 6 || segments[0] !== "single_session") return null;
+  const [, studentEncoded, typeCode, priceRaw, teacherEncoded, detailsRaw] = segments;
+  const studentId = decodeUuid(studentEncoded);
+  const teacherId = decodeUuid(teacherEncoded);
+  const bookingType = bookingTypeFromCode(typeCode);
+  if (!studentId || !teacherId || !bookingType || !/^[1-9]\d*$/.test(priceRaw)) return null;
+  const priceCents = Number(priceRaw);
+  if (!Number.isSafeInteger(priceCents)) return null;
+  const details = parseSingleSessionDetails(bookingType, detailsRaw);
+  return details
+    ? { studentId, teacherId, bookingType, priceCents, ...details }
+    : null;
 }
 
 // ── custom_id parser ─────────────────────────────────────────────────────────
@@ -242,4 +462,168 @@ export async function grantPaypalPrepaidCapture(
   }
 
   return { ok: true, lotId: lotId as string };
+}
+
+interface PaypalPaymentRecord {
+  id: string;
+  booking_id: string | null;
+}
+
+type RecordPaypalPaymentResult =
+  | { ok: true; payment: PaypalPaymentRecord; existing: boolean }
+  | { ok: false; reason: string };
+
+async function expectedSingleSessionPriceCents(
+  context: PaypalSingleSessionContext,
+): Promise<number> {
+  let priceUsd: number;
+  if (context.bookingType === "assessment") {
+    priceUsd = await getAssessmentPrice();
+  } else if (context.bookingType === "instant") {
+    priceUsd = await getInstantPrice();
+  } else {
+    priceUsd = await getSpecializedPrice(context.purpose as SpecializedPurpose);
+  }
+  return Math.round(priceUsd * 100);
+}
+
+async function findPaypalPayment(
+  admin: AdminClient,
+  orderId: string,
+): Promise<RecordPaypalPaymentResult> {
+  const { data: payment, error } = await admin
+    .from("payments")
+    .select("id, booking_id")
+    .eq("paypal_order_id", orderId)
+    .maybeSingle<PaypalPaymentRecord>();
+  if (error || !payment) {
+    return { ok: false, reason: "payment lookup failed" };
+  }
+  return { ok: true, payment, existing: true };
+}
+
+async function recordPaypalSingleSessionPayment(
+  admin: AdminClient,
+  args: GrantPaypalSingleSessionCaptureArgs,
+  context: PaypalSingleSessionContext,
+): Promise<RecordPaypalPaymentResult> {
+  const { data: payment, error } = await admin
+    .from("payments")
+    .insert({
+      student_id: context.studentId,
+      amount_usd: context.priceCents / 100,
+      amount_before_tax: context.priceCents / 100,
+      tax_amount: 0,
+      tax_rate: 0,
+      provider: "paypal",
+      status: "succeeded",
+      paypal_order_id: args.orderId,
+      paypal_capture_id: args.captureId,
+      paid_at: new Date().toISOString(),
+    })
+    .select("id, booking_id")
+    .maybeSingle<PaypalPaymentRecord>();
+  if (!error && payment) {
+    return { ok: true, payment, existing: false };
+  }
+  if (error?.code === "23505" && args.orderId) {
+    return findPaypalPayment(admin, args.orderId);
+  }
+  return { ok: false, reason: "payment insert failed" };
+}
+
+function materializeInput(
+  context: PaypalSingleSessionContext,
+  paymentId: string,
+) {
+  return {
+    studentId: context.studentId,
+    teacherId: context.teacherId,
+    bookingType: context.bookingType,
+    paymentId,
+    specialty: context.specialty,
+    purpose: context.purpose,
+    targetScopeRaw: context.targetScope
+      ? JSON.stringify(context.targetScope)
+      : null,
+    scheduledAt: context.scheduledAt,
+  };
+}
+
+type ValidateSingleSessionCaptureResult =
+  | { ok: true; context: PaypalSingleSessionContext }
+  | { ok: false; reason: string };
+
+async function validateSingleSessionCapture(
+  admin: AdminClient,
+  args: GrantPaypalSingleSessionCaptureArgs,
+): Promise<ValidateSingleSessionCaptureResult> {
+  if (!args.orderId) return { ok: false, reason: "missing paypal order id" };
+  if (!args.customId) return { ok: false, reason: "missing custom_id" };
+  const context = parseSingleSessionCustomId(args.customId);
+  if (!context) return { ok: false, reason: "bad custom_id" };
+
+  let expectedCents: number;
+  try {
+    expectedCents = await expectedSingleSessionPriceCents(context);
+  } catch (error) {
+    logError("paypal-single-session grant: price lookup failed", error, {
+      tag: "paypal-single-session",
+      order_id: args.orderId,
+    });
+    return { ok: false, reason: "price lookup failed" };
+  }
+  if (context.priceCents !== expectedCents) {
+    return { ok: false, reason: "custom_id price mismatch" };
+  }
+
+  const guard = await assertPrepaidGrantValid(admin, {
+    studentId: context.studentId,
+    hours: 1,
+    rate: expectedCents / 100,
+    chargedCents: Math.round(args.amountUsd * 100),
+  });
+  if (!guard.ok) return { ok: false, reason: guard.reason };
+  return { ok: true, context };
+}
+
+export async function grantPaypalSingleSessionCapture(
+  admin: AdminClient,
+  args: GrantPaypalSingleSessionCaptureArgs,
+): Promise<GrantPaypalSingleSessionCaptureResult> {
+  const validated = await validateSingleSessionCapture(admin, args);
+  if (!validated.ok) return validated;
+
+  const recorded = await recordPaypalSingleSessionPayment(
+    admin,
+    args,
+    validated.context,
+  );
+  if (!recorded.ok) return recorded;
+  if (recorded.payment.booking_id) {
+    return {
+      ok: true,
+      bookingId: recorded.payment.booking_id,
+      duplicate: true,
+    };
+  }
+
+  const materialized = await materializeSingleSessionBooking(
+    admin,
+    materializeInput(validated.context, recorded.payment.id),
+  );
+  if (!materialized.ok) {
+    logError("paypal-single-session grant: booking materialization failed", materialized.cause, {
+      tag: "paypal-single-session",
+      order_id: args.orderId,
+      payment_id: recorded.payment.id,
+      booking_type: validated.context.bookingType,
+    });
+    return { ok: false, reason: "grant failed" };
+  }
+  return {
+    ok: true,
+    bookingId: materialized.bookingId,
+    duplicate: recorded.existing,
+  };
 }

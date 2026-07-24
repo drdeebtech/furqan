@@ -7,7 +7,11 @@ import {
   isPayPalWebhookConfigured,
   verifyPayPalWebhookSignature,
 } from "@/lib/paypal/client";
-import { grantPaypalPrepaidCapture, parseRefundCaptureId } from "@/lib/paypal/grant";
+import {
+  grantPaypalPrepaidCapture,
+  grantPaypalSingleSessionCapture,
+  parseRefundCaptureId,
+} from "@/lib/paypal/grant";
 
 export const maxDuration = 60;
 
@@ -70,6 +74,69 @@ const RefundResourceSchema = z
     links: z.array(z.object({ href: z.string(), rel: z.string() })).optional(),
   })
   .passthrough();
+
+interface CompletedCapture {
+  captureId: string;
+  amountUsd: number;
+  customId: string;
+  orderId: string | null;
+}
+
+async function handleSingleSessionCapture(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  billingEventId: string | null,
+  capture: CompletedCapture,
+): Promise<{ retryable: boolean }> {
+  const grant = await grantPaypalSingleSessionCapture(admin, {
+    captureId: capture.captureId,
+    amountUsd: capture.amountUsd,
+    customId: capture.customId,
+    orderId: capture.orderId,
+  });
+  if (grant.ok) {
+    logInfo("paypal-webhook: single_session granted", {
+      tag: "paypal-webhook",
+      event_id: eventId,
+      capture_id: capture.captureId,
+      booking_id: grant.bookingId,
+      duplicate: grant.duplicate,
+    });
+    await markEvent(
+      { admin, billingEventId },
+      "processed",
+      undefined,
+      "paypal-webhook",
+    );
+    return { retryable: false };
+  }
+
+  logError(
+    "paypal-webhook: single_session grant failed",
+    new Error(grant.reason),
+    {
+      tag: "paypal-webhook",
+      event_id: eventId,
+      capture_id: capture.captureId,
+      reason: grant.reason,
+    },
+  );
+  await markEvent(
+    { admin, billingEventId },
+    "failed",
+    grant.reason,
+    "paypal-webhook",
+  );
+  return {
+    retryable: [
+      "grant failed",
+      "payment insert failed",
+      "payment lookup failed",
+      "price lookup failed",
+      "profile lookup failed",
+    ].includes(grant.reason),
+  };
+}
 
 
 export async function POST(request: Request) {
@@ -212,12 +279,28 @@ async function handleCaptureCompleted(
   const capture = resourceParsed.data;
   const amountUsd = capture.amount?.value ? Number(capture.amount.value) : NaN;
   const customId = capture.custom_id ?? null;
+  const orderId =
+    capture.supplementary_data?.related_ids?.order_id ?? null;
+
+  if (customId?.startsWith("single_session:")) {
+    return handleSingleSessionCapture(
+      admin,
+      event.id,
+      billingEventId,
+      {
+        captureId: capture.id,
+        amountUsd,
+        customId,
+        orderId,
+      },
+    );
+  }
 
   const result = await grantPaypalPrepaidCapture(admin, {
     captureId: capture.id,
     amountUsd,
     customId,
-    orderId: capture.supplementary_data?.related_ids?.order_id ?? null,
+    orderId,
   });
 
   if (result.ok) {
