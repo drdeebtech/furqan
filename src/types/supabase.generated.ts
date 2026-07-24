@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -3311,6 +3306,7 @@ export type Database = {
           payer_email: string | null
           paypal_capture_id: string | null
           paypal_order_id: string | null
+          paypal_sale_id: string | null
           provider: string
           revenue_recognized: number
           status: Database["public"]["Enums"]["payment_status"]
@@ -3334,6 +3330,7 @@ export type Database = {
           payer_email?: string | null
           paypal_capture_id?: string | null
           paypal_order_id?: string | null
+          paypal_sale_id?: string | null
           provider?: string
           revenue_recognized?: number
           status?: Database["public"]["Enums"]["payment_status"]
@@ -3357,6 +3354,7 @@ export type Database = {
           payer_email?: string | null
           paypal_capture_id?: string | null
           paypal_order_id?: string | null
+          paypal_sale_id?: string | null
           provider?: string
           revenue_recognized?: number
           status?: Database["public"]["Enums"]["payment_status"]
@@ -6149,6 +6147,7 @@ export type Database = {
           is_hifz_product: boolean
           monthly_credit_count: number
           name: string
+          paypal_plan_id: string | null
           plan_code: string
           plan_type: Database["public"]["Enums"]["billing_plan_type"]
           price_cents: number
@@ -6167,6 +6166,7 @@ export type Database = {
           is_hifz_product?: boolean
           monthly_credit_count: number
           name: string
+          paypal_plan_id?: string | null
           plan_code: string
           plan_type: Database["public"]["Enums"]["billing_plan_type"]
           price_cents: number
@@ -6185,6 +6185,7 @@ export type Database = {
           is_hifz_product?: boolean
           monthly_credit_count?: number
           name?: string
+          paypal_plan_id?: string | null
           plan_code?: string
           plan_type?: Database["public"]["Enums"]["billing_plan_type"]
           price_cents?: number
@@ -6302,9 +6303,12 @@ export type Database = {
           payer_user_id: string | null
           pending_tier_change_id: string | null
           plan_id: string
+          provider: string
+          provider_customer_id: string | null
+          provider_subscription_id: string | null
           status: Database["public"]["Enums"]["subscription_status"]
-          stripe_customer_id: string
-          stripe_subscription_id: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           student_id: string
           updated_at: string
         }
@@ -6320,9 +6324,12 @@ export type Database = {
           payer_user_id?: string | null
           pending_tier_change_id?: string | null
           plan_id: string
+          provider?: string
+          provider_customer_id?: string | null
+          provider_subscription_id?: string | null
           status: Database["public"]["Enums"]["subscription_status"]
-          stripe_customer_id: string
-          stripe_subscription_id: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           student_id: string
           updated_at?: string
         }
@@ -6338,9 +6345,12 @@ export type Database = {
           payer_user_id?: string | null
           pending_tier_change_id?: string | null
           plan_id?: string
+          provider?: string
+          provider_customer_id?: string | null
+          provider_subscription_id?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
-          stripe_customer_id?: string
-          stripe_subscription_id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           student_id?: string
           updated_at?: string
         }
@@ -8870,3 +8880,4 @@ export const Constants = {
     },
   },
 } as const
+

@@ -17,24 +17,56 @@ import { BillingEvents } from "../events";
  */
 
 // ── Supabase mock ───────────────────────────────────────────────────────────
+type EqCall = [column: string, value: unknown];
+type SupabaseCallLog = {
+  eq: EqCall[];
+  inserts: unknown[];
+  updates: unknown[];
+};
+type QueueResult = {
+  data?: unknown | ((callLog: SupabaseCallLog) => unknown);
+  error?: unknown;
+};
+
+function makeSupabaseCallLog(): SupabaseCallLog {
+  return { eq: [], inserts: [], updates: [] };
+}
+
+function resolveQueuedData(data: QueueResult["data"], callLog: SupabaseCallLog): unknown {
+  return typeof data === "function" ? data(callLog) : data;
+}
+
 // Chainable builder; terminal single()/maybeSingle()/await pull FIFO from a
 // queue of { data, error } results so multi-query flows (read → update/insert)
 // can be scripted in call order.
-function makeClient(queue: Array<{ data?: unknown; error?: unknown }>) {
+function makeClient(queue: QueueResult[], callLog = makeSupabaseCallLog()) {
   const q = [...queue];
   const next = () => {
     if (q.length === 0) {
       throw new Error("Supabase mock queue exhausted — unexpected extra query");
     }
     const r = q.shift()!;
-    const data = r.data === undefined ? null : r.data;
+    const resolvedData = resolveQueuedData(r.data, callLog);
+    const data = resolvedData === undefined ? null : resolvedData;
     const error = r.error === undefined ? null : r.error;
     return Promise.resolve({ data, error });
   };
   const qb: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "lte", "insert", "update", "in", "order", "limit"]) {
+  for (const m of ["select", "lte", "in", "order", "limit"]) {
     qb[m] = () => qb;
   }
+  qb.eq = (column: string, value: unknown) => {
+    callLog.eq.push([column, value]);
+    return qb;
+  };
+  qb.insert = (value: unknown) => {
+    callLog.inserts.push(value);
+    return qb;
+  };
+  qb.update = (value: unknown) => {
+    callLog.updates.push(value);
+    return qb;
+  };
   qb.maybeSingle = () => next();
   qb.single = () => next();
   qb.then = (resolve: (v: unknown) => unknown) => next().then(resolve);
@@ -143,18 +175,71 @@ describe("subscriptions.upsertMirror", () => {
   });
 
   it("updates an existing mirror when the event is newer", async () => {
+    const callLog = makeSupabaseCallLog();
     const client = makeClient([
       { data: { id: "sub-1", last_event_at: "2020-01-01T00:00:00.000Z" } },
       { data: mirrorRow },
-    ]);
+    ], callLog);
     const res = await upsertMirror(client as never, snap());
     expect(res).toMatchObject({ id: "sub-1", status: "active", planId: "plan-1" });
+    expect(callLog.eq).toEqual(expect.arrayContaining([
+      ["provider", "stripe"],
+      ["provider_subscription_id", "sub_stripe_1"],
+    ]));
   });
 
   it("inserts a new mirror when none exists", async () => {
-    const client = makeClient([{ data: null }, { data: mirrorRow }]);
+    const callLog = makeSupabaseCallLog();
+    const client = makeClient([{ data: null }, { data: mirrorRow }], callLog);
     const res = await upsertMirror(client as never, snap());
     expect(res).toMatchObject({ stripeSubscriptionId: "sub_stripe_1" });
+    expect(callLog.inserts[0]).toMatchObject({
+      provider: "stripe",
+      provider_subscription_id: "sub_stripe_1",
+      provider_customer_id: "cus_1",
+      stripe_subscription_id: "sub_stripe_1",
+      stripe_customer_id: "cus_1",
+    });
+  });
+
+  it("matches the Stripe provider row when a PayPal row has the same provider subscription id and no Stripe id", async () => {
+    const callLog = makeSupabaseCallLog();
+    const rows = [
+      {
+        provider: "paypal",
+        provider_subscription_id: "sub_stripe_1",
+        stripe_subscription_id: null,
+        id: "sub-paypal",
+        last_event_at: "2020-01-01T00:00:00.000Z",
+      },
+      {
+        provider: "stripe",
+        provider_subscription_id: "sub_stripe_1",
+        stripe_subscription_id: "sub_stripe_1",
+        id: "sub-stripe",
+        last_event_at: "2020-01-01T00:00:00.000Z",
+      },
+    ];
+    const client = makeClient([
+      {
+        data: (log: SupabaseCallLog) => rows.find((row) =>
+          log.eq.some(([column, value]: EqCall) => column === "provider" && value === row.provider) &&
+          log.eq.some(([column, value]: EqCall) =>
+            column === "provider_subscription_id" &&
+            value === row.provider_subscription_id,
+          ),
+        ),
+      },
+      { data: { ...mirrorRow, id: "sub-stripe" } },
+    ], callLog);
+
+    const res = await upsertMirror(client as never, snap());
+
+    expect(res).toMatchObject({ id: "sub-stripe" });
+    expect(callLog.eq.slice(0, 2)).toEqual([
+      ["provider", "stripe"],
+      ["provider_subscription_id", "sub_stripe_1"],
+    ]);
   });
 
   it("skips insert (returns null) when planId is missing on a new mirror", async () => {
