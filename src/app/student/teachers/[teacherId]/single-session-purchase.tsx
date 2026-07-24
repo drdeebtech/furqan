@@ -12,12 +12,14 @@ interface SingleSessionPurchaseProps {
   }[];
   priceUsd: number | null;
   lang: "ar" | "en";
+  paypalEnabled?: boolean;
 }
 
 interface CheckoutResponse {
   success?: boolean;
   data?: {
     checkoutUrl?: string;
+    approveUrl?: string;
     bookingId?: string;
   };
   error?: string;
@@ -40,6 +42,7 @@ export function SingleSessionPurchase({
   availability,
   priceUsd,
   lang,
+  paypalEnabled = false,
 }: SingleSessionPurchaseProps) {
   const mounted = useSyncExternalStore(subscribeNoop, getSnapshotClient, getSnapshotServer);
 
@@ -57,9 +60,25 @@ export function SingleSessionPurchase({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function buildCheckoutBody() {
+    if (!selected) return null;
+    return {
+      productType: "instant",
+      teacherId,
+      scheduledAt: selected.iso,
+      // Student-local wall-clock — the server validates availability with
+      // these (never by re-deriving wall-clock from the UTC instant in its
+      // own timezone). Mirrors the subscription booking-form contract.
+      dayOfWeek: selected.dayOfWeek,
+      localDate: selected.localDate,
+      localTime: selected.localTime,
+    };
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selected) return;
+    const checkoutBody = buildCheckoutBody();
+    if (!checkoutBody) return;
     setIsLoading(true);
     setError(null);
 
@@ -67,17 +86,7 @@ export function SingleSessionPurchase({
       const response = await fetch("/api/stripe/checkout/single-session", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          productType: "instant",
-          teacherId,
-          scheduledAt: selected.iso,
-          // Student-local wall-clock — the server validates availability with
-          // these (never by re-deriving wall-clock from the UTC instant in its
-          // own timezone). Mirrors the subscription booking-form contract.
-          dayOfWeek: selected.dayOfWeek,
-          localDate: selected.localDate,
-          localTime: selected.localTime,
-        }),
+        body: JSON.stringify(checkoutBody),
       });
       const parsed: unknown = await response.json();
       const body = isCheckoutResponse(parsed) ? parsed : {};
@@ -88,6 +97,48 @@ export function SingleSessionPurchase({
       }
 
       if (body.data?.bookingId) {
+        window.location.assign("/student/dashboard?single_session=success");
+        return;
+      }
+
+      setError(
+        body.error ??
+          (lang === "ar"
+            ? "تعذر بدء عملية الدفع. يرجى المحاولة مرة أخرى."
+            : "Unable to start checkout. Please try again."),
+      );
+    } catch {
+      setError(
+        lang === "ar"
+          ? "تعذر بدء عملية الدفع. يرجى المحاولة مرة أخرى."
+          : "Unable to start checkout. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handlePayPalBuy() {
+    const checkoutBody = buildCheckoutBody();
+    if (!checkoutBody) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/paypal/checkout/single-session", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(checkoutBody),
+      });
+      const parsed: unknown = await response.json();
+      const body = isCheckoutResponse(parsed) ? parsed : {};
+
+      if (response.ok && body.success && body.data?.approveUrl) {
+        window.location.assign(body.data.approveUrl);
+        return;
+      }
+
+      if (response.ok && body.data?.bookingId) {
         window.location.assign("/student/dashboard?single_session=success");
         return;
       }
@@ -151,13 +202,29 @@ export function SingleSessionPurchase({
           </option>
         ))}
       </select>
-      <button
-        type="submit"
-        disabled={isLoading || !selectedIso}
-        className="focus-ring w-full rounded-xl border border-gold/60 bg-transparent px-4 py-3 text-sm font-semibold text-gold transition-colors hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isLoading ? loadingLabel : `${buttonLabel}${priceLabel}`}
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="submit"
+          disabled={isLoading || !selectedIso}
+          className="focus-ring inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gold/60 bg-transparent px-4 py-3 text-sm font-semibold text-gold transition-colors hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isLoading ? loadingLabel : `${buttonLabel}${priceLabel}`}
+        </button>
+        {paypalEnabled && (
+          <button
+            type="button"
+            onClick={handlePayPalBuy}
+            disabled={isLoading || !selectedIso}
+            className="glass-pill inline-flex min-h-[44px] flex-1 items-center justify-center border border-gold/40 px-6 py-3 text-sm font-semibold text-gold transition-colors hover:bg-gold/10 focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoading
+              ? loadingLabel
+              : lang === "ar"
+                ? "الدفع عبر باي بال"
+                : "Pay with PayPal"}
+          </button>
+        )}
+      </div>
       {error && (
         <p role="alert" className="text-sm text-red-400">
           {error}
