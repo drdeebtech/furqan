@@ -30,6 +30,13 @@ export interface SubscriptionPlan {
   currency: string;
   stripeProductId: string;
   stripePriceId: string;
+  /**
+   * PayPal billing-plan id (spec 039 recurring). NULL until the plan-bootstrap
+   * script (#761) runs against live PayPal. The PayPal checkout route treats a
+   * null here as "payments unavailable" rather than subscribing against an
+   * empty plan id.
+   */
+  paypalPlanId: string | null;
   isActive: boolean;
 }
 
