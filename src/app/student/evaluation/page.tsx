@@ -5,6 +5,7 @@ import { CalendarCheck, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { TRIAL_POLICY, SESSION_DURATION } from "@/lib/copy/policies";
+import { getSettings } from "@/lib/settings";
 import { BookEvaluationForm } from "./book-evaluation-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -34,6 +35,9 @@ export default async function EvaluationPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirect=/student/evaluation");
+
+  const settings = await getSettings();
+  const paypalEnabled = settings["paypal_purchase_enabled"] === "true";
 
   // Own-row read (RLS). Same active predicate as the E1 unique index:
   // cancelled / no_show don't consume the attempt (G5 — re-booking allowed).
@@ -104,7 +108,7 @@ export default async function EvaluationPage() {
           </div>
         </div>
       ) : (
-        <BookEvaluationForm />
+        <BookEvaluationForm paypalEnabled={paypalEnabled} />
       )}
     </div>
   );

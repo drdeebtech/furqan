@@ -11,6 +11,7 @@ import {
 import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import { getInstantPrice } from "@/lib/domains/single-sessions/pricing";
 import { hasBookableCredit } from "@/lib/domains/package/ledger";
+import { getSettings } from "@/lib/settings";
 import type { GenderType, SessionType, RecitationStandard } from "@/types/database";
 import { SingleSessionPurchase } from "./single-session-purchase";
 
@@ -36,7 +37,7 @@ export default async function TeacherDetailPage({ params }: PageProps) {
   if (!user) redirect(`/login?next=/student/teachers/${teacherId}`);
 
   // Pull profile + teacher_profiles + availability + specialty picklist in parallel.
-  const [{ data: profile }, { data: tp }, { data: availability }, specialtyLabels, instantPrice, canBook] = await Promise.all([
+  const [{ data: profile }, { data: tp }, { data: availability }, specialtyLabels, instantPrice, canBook, settings] = await Promise.all([
     supabase
       .from("public_profiles" as "profiles")
       .select("full_name, full_name_ar, avatar_url")
@@ -68,7 +69,9 @@ export default async function TeacherDetailPage({ params }: PageProps) {
     // surfaces. The pay-per-session form below stays visible either way — it is
     // precisely the path for a student who holds no package.
     hasBookableCredit(supabase, user.id),
+    getSettings(),
   ]);
+  const paypalEnabled = settings["paypal_purchase_enabled"] === "true";
 
   if (!profile || !tp || tp.is_archived || !tp.is_accepting || tp.cv_status !== "approved") {
     notFound();
@@ -245,6 +248,7 @@ export default async function TeacherDetailPage({ params }: PageProps) {
         availability={availability ?? []}
         priceUsd={instantPrice}
         lang={lang}
+        paypalEnabled={paypalEnabled}
       />
     </div>
   );

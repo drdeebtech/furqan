@@ -12,11 +12,16 @@ const EVALUATION_SPECIALTIES = ["hifz", "tajweed", "tilawa", "qiraat", "tafsir"]
 
 type Phase = "idle" | "pending" | "booked";
 
-export function BookEvaluationForm() {
+interface BookEvaluationFormProps {
+  paypalEnabled?: boolean;
+}
+
+export function BookEvaluationForm({ paypalEnabled = false }: BookEvaluationFormProps) {
   const { t } = useLang();
   const [specialty, setSpecialty] = useState<string>("hifz");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const checkoutBody = { productType: "assessment", specialty };
 
   async function book() {
     setPhase("pending");
@@ -29,7 +34,7 @@ export function BookEvaluationForm() {
       const res = await fetch("/api/stripe/checkout/single-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productType: "assessment", specialty }),
+        body: JSON.stringify(checkoutBody),
         signal: controller.signal,
       });
       const json: { success?: boolean; data?: { bookingId?: string; checkoutUrl?: string }; error?: string } =
@@ -70,6 +75,47 @@ export function BookEvaluationForm() {
       // Includes AbortError from the timeout above.
       setPhase("idle");
       setError(t("تعذر الاتصال بالخادم — تحقق من اتصالك وحاول مجدداً.", "Could not reach the server — check your connection and retry."));
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async function handlePayPalBuy() {
+    setPhase("pending");
+    setError(null);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const res = await fetch("/api/paypal/checkout/single-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(checkoutBody),
+        signal: controller.signal,
+      });
+      const json: { success?: boolean; data?: { approveUrl?: string }; error?: string } =
+        await res.json().catch(() => ({}));
+
+      if (res.ok && json.success && json.data?.approveUrl) {
+        window.location.assign(json.data.approveUrl);
+        return;
+      }
+
+      setPhase("idle");
+      setError(
+        json.error ??
+          t(
+            "تعذر بدء عملية الدفع. يرجى المحاولة مرة أخرى.",
+            "Unable to start checkout. Please try again.",
+          ),
+      );
+    } catch {
+      setPhase("idle");
+      setError(
+        t(
+          "تعذر الاتصال بالخادم — تحقق من اتصالك وحاول مجدداً.",
+          "Could not reach the server — check your connection and retry.",
+        ),
+      );
     } finally {
       clearTimeout(timeout);
     }
@@ -123,25 +169,39 @@ export function BookEvaluationForm() {
           </option>
         ))}
       </select>
-      <button
-        type="button"
-        onClick={book}
-        disabled={phase === "pending"}
-        aria-busy={phase === "pending"}
-        className="mt-5 flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-gold-hover disabled:opacity-50 focus-ring"
-      >
-        {phase === "pending" ? (
-          <>
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" aria-hidden="true" />
-            <span className="sr-only">{t("جارٍ الحجز...", "Booking...")}</span>
-          </>
-        ) : (
-          <>
-            <Sparkles size={18} aria-hidden="true" />
-            {t("احجز جلسة التقييم المجانية", "Book the free evaluation")}
-          </>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={book}
+          disabled={phase === "pending"}
+          aria-busy={phase === "pending"}
+          className="glass-gold glass-pill inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-full py-2.5 font-semibold text-background transition-colors hover:bg-gold-hover disabled:opacity-50 focus-ring"
+        >
+          {phase === "pending" ? (
+            <>
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" aria-hidden="true" />
+              <span className="sr-only">{t("جارٍ الحجز...", "Booking...")}</span>
+            </>
+          ) : (
+            <>
+              <Sparkles size={18} aria-hidden="true" />
+              {t("احجز جلسة التقييم المجانية", "Book the free evaluation")}
+            </>
+          )}
+        </button>
+        {paypalEnabled && (
+          <button
+            type="button"
+            onClick={handlePayPalBuy}
+            disabled={phase === "pending"}
+            className="glass-pill inline-flex min-h-[44px] flex-1 items-center justify-center border border-gold/40 px-6 py-3 text-sm font-semibold text-gold transition-colors hover:bg-gold/10 focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {phase === "pending"
+              ? t("جارٍ التوجيه…", "Redirecting…")
+              : t("الدفع عبر باي بال", "Pay with PayPal")}
+          </button>
         )}
-      </button>
+      </div>
     </div>
   );
 }
