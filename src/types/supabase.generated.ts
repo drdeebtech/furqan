@@ -8236,6 +8236,8 @@ export type Database = {
           p_cycle_key: string
           p_expires_at: string
           p_plan_id: string
+          p_provider?: string
+          p_provider_ref?: string
           p_session_metadata: Json
           p_stripe_payment_intent: string
           p_student_id: string
