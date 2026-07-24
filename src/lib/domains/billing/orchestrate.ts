@@ -67,6 +67,8 @@ export async function grantCycle(
       p_credit_count: input.creditCount,
       p_expires_at: input.expiresAt,
       p_session_metadata: input.sessionMetadata as unknown as Json,
+      p_provider: input.provider ?? "stripe",
+      p_provider_ref: input.providerRef ?? undefined,
     });
 
     if (error) {

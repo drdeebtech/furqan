@@ -39,6 +39,9 @@ export interface SubscriptionMirror {
   studentId: string;
   payerUserId: string | null;
   planId: string;
+  provider: "stripe" | "paypal";
+  providerSubscriptionId: string | null;
+  providerCustomerId: string | null;
   stripeSubscriptionId: string | null;
   stripeCustomerId: string | null;
   status: SubscriptionStatus;
@@ -61,6 +64,8 @@ export interface GrantCycleInput {
   /** invoice_id + sub_id + period_start — unique per paid cycle. */
   cycleKey: string;
   stripePaymentIntent: string;
+  provider?: "stripe" | "paypal";
+  providerRef?: string | null;
   amountCents: number;
   creditCount: number;
   expiresAt: string;

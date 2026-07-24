@@ -202,6 +202,43 @@ describe("subscriptions.upsertMirror", () => {
     });
   });
 
+  it("inserts a PayPal mirror using provider-neutral ids and no Stripe ids", async () => {
+    const callLog = makeSupabaseCallLog();
+    const paypalRow = {
+      ...mirrorRow,
+      provider: "paypal",
+      provider_subscription_id: "I-SUB-1",
+      provider_customer_id: null,
+      stripe_subscription_id: null,
+      stripe_customer_id: null,
+    };
+    const client = makeClient([{ data: null }, { data: paypalRow }], callLog);
+    const res = await upsertMirror(client as never, snap({
+      provider: "paypal",
+      providerSubscriptionId: "I-SUB-1",
+      providerCustomerId: null,
+      stripeSubscriptionId: "I-SUB-1",
+      stripeCustomerId: "",
+    }));
+
+    expect(res).toMatchObject({
+      provider: "paypal",
+      providerSubscriptionId: "I-SUB-1",
+      stripeSubscriptionId: null,
+    });
+    expect(callLog.eq).toEqual(expect.arrayContaining([
+      ["provider", "paypal"],
+      ["provider_subscription_id", "I-SUB-1"],
+    ]));
+    expect(callLog.inserts[0]).toMatchObject({
+      provider: "paypal",
+      provider_subscription_id: "I-SUB-1",
+      provider_customer_id: null,
+      stripe_subscription_id: null,
+      stripe_customer_id: null,
+    });
+  });
+
   it("matches the Stripe provider row when a PayPal row has the same provider subscription id and no Stripe id", async () => {
     const callLog = makeSupabaseCallLog();
     const rows = [
