@@ -73,11 +73,12 @@ export async function upsertMirror(
   snap: StripeSubscriptionSnapshot,
 ): Promise<SubscriptionMirror | null> {
   try {
-    // Lock the row by stripe_subscription_id to read last_event_at consistently.
+    // Lock the Stripe-provider row to read last_event_at consistently.
     const { data: existing, error: readErr } = await admin
       .from("subscriptions")
       .select("id, last_event_at")
-      .eq("stripe_subscription_id", snap.stripeSubscriptionId)
+      .eq("provider", "stripe")
+      .eq("provider_subscription_id", snap.stripeSubscriptionId)
       .maybeSingle();
 
     if (readErr) {
@@ -136,6 +137,9 @@ export async function upsertMirror(
     const insert = {
       student_id: snap.studentId,
       plan_id: snap.planId,
+      provider: "stripe",
+      provider_subscription_id: snap.stripeSubscriptionId,
+      provider_customer_id: snap.stripeCustomerId,
       stripe_subscription_id: snap.stripeSubscriptionId,
       stripe_customer_id: snap.stripeCustomerId,
       status: insertStatus,
@@ -174,8 +178,8 @@ type MirrorRow = {
   student_id: string;
   payer_user_id: string | null;
   plan_id: string;
-  stripe_subscription_id: string;
-  stripe_customer_id: string;
+  stripe_subscription_id: string | null;
+  stripe_customer_id: string | null;
   status: SubscriptionStatus;
   current_period_start: string | null;
   current_period_end: string | null;

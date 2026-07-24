@@ -39,8 +39,8 @@ export interface SubscriptionMirror {
   studentId: string;
   payerUserId: string | null;
   planId: string;
-  stripeSubscriptionId: string;
-  stripeCustomerId: string;
+  stripeSubscriptionId: string | null;
+  stripeCustomerId: string | null;
   status: SubscriptionStatus;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;

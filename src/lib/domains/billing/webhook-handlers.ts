@@ -466,7 +466,8 @@ async function resolveSubscription(
   const { data: mirror } = await ctx.admin
     .from("subscriptions")
     .select("id, student_id, plan_id")
-    .eq("stripe_subscription_id", subscriptionId)
+    .eq("provider", "stripe")
+    .eq("provider_subscription_id", subscriptionId)
     .maybeSingle<{ id: string; student_id: string; plan_id: string }>();
   if (mirror) {
     return { studentId: mirror.student_id, planId: mirror.plan_id, mirrorId: mirror.id };
@@ -511,6 +512,9 @@ async function resolveSubscription(
     .insert({
       student_id: studentId,
       plan_id: planId,
+      provider: "stripe",
+      provider_subscription_id: subscriptionId,
+      provider_customer_id: customerId,
       stripe_subscription_id: subscriptionId,
       stripe_customer_id: customerId,
       status: "active",
@@ -526,7 +530,8 @@ async function resolveSubscription(
     const { data: winner } = await ctx.admin
       .from("subscriptions")
       .select("id")
-      .eq("stripe_subscription_id", subscriptionId)
+      .eq("provider", "stripe")
+      .eq("provider_subscription_id", subscriptionId)
       .maybeSingle<{ id: string }>();
     return { studentId, planId, mirrorId: winner?.id ?? null };
   }
@@ -551,7 +556,8 @@ export async function handlePaymentFailed(ctx: EventContext): Promise<void> {
     const { data: existing } = await ctx.admin
       .from("subscriptions")
       .select("id, last_event_at")
-      .eq("stripe_subscription_id", subscriptionId)
+      .eq("provider", "stripe")
+      .eq("provider_subscription_id", subscriptionId)
       .maybeSingle<{ id: string; last_event_at: string }>();
     if (existing && Date.parse(eventIso) >= Date.parse(existing.last_event_at)) {
       await ctx.admin
@@ -622,7 +628,8 @@ async function snapshotFromSubscription(
     const { data: mirror } = await ctx.admin
       .from("subscriptions")
       .select("student_id")
-      .eq("stripe_subscription_id", sub.id)
+      .eq("provider", "stripe")
+      .eq("provider_subscription_id", sub.id)
       .maybeSingle<{ student_id: string }>();
     studentId = mirror?.student_id ?? "";
   }
@@ -1136,18 +1143,19 @@ export async function revokeAndCancelOnSubscriptionRefund(
     .eq("status", "active");
   if (revokeErr) throw new WebhookTransientError(`refund: session revoke failed: ${revokeErr.message}`);
 
-  // 3. Cancel the subscription in Stripe. Needs the mirror's stripe_subscription_id;
+  // 3. Cancel the subscription in Stripe. Needs the mirror's Stripe provider ref;
   //    if the mirror can't be mapped, local records are ALREADY reconciled above —
   //    log and stop rather than silently drop the reversal.
   const { data: mirror, error: mirrorErr } = await ctx.admin
     .from("subscriptions")
-    .select("stripe_subscription_id, status")
+    .select("provider_subscription_id, status")
     .eq("id", subscriptionId)
-    .maybeSingle<{ stripe_subscription_id: string; status: string }>();
+    .eq("provider", "stripe")
+    .maybeSingle<{ provider_subscription_id: string | null; status: string }>();
   if (mirrorErr) {
     throw new WebhookTransientError(`refund: subscription mirror lookup failed: ${mirrorErr.message}`);
   }
-  if (!mirror?.stripe_subscription_id) {
+  if (!mirror?.provider_subscription_id) {
     logError("stripe-webhook: refunded subscription grant has no mirror — reconciled locally, not cancelled at Stripe", new Error("no mirror"), {
       tag: "billing",
       subscription_id: subscriptionId,
@@ -1155,7 +1163,7 @@ export async function revokeAndCancelOnSubscriptionRefund(
     });
     return;
   }
-  const stripeSubId = mirror.stripe_subscription_id;
+  const stripeSubId = mirror.provider_subscription_id;
 
   //    Idempotent: an already-cancelled sub (e.g. the admin cancelled in the
   //    dashboard first) is treated as success, never a permanent 500.

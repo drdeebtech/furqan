@@ -70,6 +70,28 @@ type MockAdmin = {
   rpc?: ReturnType<typeof vi.fn>;
 };
 
+type EqCall = [column: string, value: unknown];
+type MaybeSingleResult = { data: unknown; error: unknown };
+
+function hasEq(calls: EqCall[], column: string, value: unknown): boolean {
+  return calls.some(([callColumn, callValue]) => callColumn === column && callValue === value);
+}
+
+function makeMaybeSingleEqChain(resolveResult: (calls: EqCall[]) => MaybeSingleResult, callLog?: EqCall[]) {
+  const calls: EqCall[] = [];
+  const chain = {} as {
+    eq: ReturnType<typeof vi.fn>;
+    maybeSingle: ReturnType<typeof vi.fn>;
+  };
+  chain.eq = vi.fn((column: string, value: unknown) => {
+    calls.push([column, value]);
+    callLog?.push([column, value]);
+    return chain;
+  });
+  chain.maybeSingle = vi.fn(() => Promise.resolve(resolveResult(calls)));
+  return chain;
+}
+
 function makeUpdateAdmin(updateError: { message: string } | null = null): MockAdmin {
   const update = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ error: updateError }),
@@ -279,6 +301,63 @@ describe("handleSubscriptionLifecycle", () => {
     expect(upsertMirror).toHaveBeenCalled();
   });
 
+  it("falls back to the existing Stripe mirror by provider-neutral subscription id when metadata has no student_id", async () => {
+    vi.mocked(upsertMirror).mockResolvedValue({ id: "mirror-stripe" } as never);
+    const eqCalls: EqCall[] = [];
+    const eqFn = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: eqFn });
+    const subscriptionRows = [
+      {
+        provider: "paypal",
+        provider_subscription_id: "sub_abc",
+        student_id: "stu-paypal",
+      },
+      {
+        provider: "stripe",
+        provider_subscription_id: "sub_abc",
+        student_id: "stu-stripe",
+      },
+    ];
+    const subscriptionSelect = vi.fn(() => makeMaybeSingleEqChain((calls) => ({
+      data: subscriptionRows.find((row) =>
+        hasEq(calls, "provider", row.provider) &&
+        hasEq(calls, "provider_subscription_id", row.provider_subscription_id),
+      ) ?? null,
+      error: null,
+    }), eqCalls));
+    const planSelect = vi.fn(() => ({
+      eq: vi.fn(() => ({
+        maybeSingle: vi.fn().mockResolvedValue({ data: { id: "plan-1" }, error: null }),
+      })),
+    }));
+    const admin: MockAdmin = {
+      from: vi.fn((table: string) => {
+        if (table === "billing_events") return { update };
+        if (table === "subscriptions") return { select: subscriptionSelect };
+        return { select: planSelect };
+      }),
+    };
+    const ctx = makeEventCtx(admin, "evt-1", {
+      id: "sub_abc",
+      status: "active",
+      customer: "cus_1",
+      metadata: {},
+      items: { data: [{ price: { id: "price_1" }, current_period_start: 1_700_000_000, current_period_end: 1_702_678_400 }] },
+      cancel_at_period_end: false,
+    });
+
+    await handleSubscriptionLifecycle(ctx);
+
+    expect(eqCalls).toEqual([
+      ["provider", "stripe"],
+      ["provider_subscription_id", "sub_abc"],
+    ]);
+    expect(upsertMirror).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ studentId: "stu-stripe" }),
+    );
+  });
+
   it("marks event 'failed' when upsertMirror returns null", async () => {
     vi.mocked(upsertMirror).mockResolvedValue(null);
 
@@ -393,17 +472,16 @@ describe("handleInvoicePaid", () => {
     // A RESOLVABLE mirror (student_id + plan_id) — the old shape returned the
     // plan row for subscriptions reads, so resolveSubscription always failed
     // and the "happy path" test never actually reached the grant step.
-    const mirrorMaybe = vi.fn().mockResolvedValue({
-      data: opts.mirror === undefined ? { id: "mirror-1", student_id: "stu-1", plan_id: "plan-1" } : opts.mirror,
-      error: null,
-    });
     const planEq = vi.fn((_col: string, id: unknown) => ({
       maybeSingle: vi.fn().mockResolvedValue({ data: planFor(id), error: null }),
     }));
     const planSelect = vi.fn(() => ({ eq: planEq }));
-    const subEq = vi.fn(() => ({ maybeSingle: mirrorMaybe }));
-    const subSelect = vi.fn(() => ({ eq: subEq }));
-    const upsertEq = vi.fn(() => ({ maybeSingle: mirrorMaybe, select: vi.fn(() => ({ maybeSingle: mirrorMaybe })) }));
+    const mirrorResult = () => ({
+      data: opts.mirror === undefined ? { id: "mirror-1", student_id: "stu-1", plan_id: "plan-1" } : opts.mirror,
+      error: null,
+    });
+    const subSelect = vi.fn(() => makeMaybeSingleEqChain(mirrorResult));
+    const upsertEq = vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue(mirrorResult()), select: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue(mirrorResult()) })) }));
     const upsert = vi.fn(() => ({ eq: upsertEq }));
     return {
       from: vi.fn((table: string) => {
@@ -515,18 +593,32 @@ describe("handleInvoicePaid", () => {
   // delta (applyImmediateUpgradeGrant) — never the full monthly grantCycle,
   // which double-granted before this branch existed.
   describe("subscription_update proration invoices", () => {
-    function makeUpgradeAdmin(opts: { mirror?: object | null } = {}) {
+    function makeUpgradeAdmin(opts: {
+      mirror?: object | null;
+      subscriptionRows?: Array<{
+        provider: "stripe" | "paypal";
+        provider_subscription_id: string;
+        id: string;
+        student_id: string;
+        plan_id: string;
+      }>;
+      eqCalls?: EqCall[];
+    } = {}) {
       const beEq = vi.fn().mockResolvedValue({ error: null });
       const beUpdate = vi.fn().mockReturnValue({ eq: beEq });
-      const subMaybe = vi.fn().mockResolvedValue({
-        data:
-          opts.mirror === undefined
+      const subResult = (calls: EqCall[]) => {
+        const data = opts.subscriptionRows
+          ? opts.subscriptionRows.find((row) =>
+              hasEq(calls, "provider", row.provider) &&
+              hasEq(calls, "provider_subscription_id", row.provider_subscription_id),
+            ) ?? null
+          : opts.mirror === undefined
             ? { id: "mirror-1", student_id: "stu-1", plan_id: "plan-1" }
-            : opts.mirror,
-        error: null,
-      });
-      const subEq = vi.fn(() => ({ maybeSingle: subMaybe }));
-      const subSelect = vi.fn(() => ({ eq: subEq }));
+            : opts.mirror;
+
+        return { data, error: null };
+      };
+      const subSelect = vi.fn(() => makeMaybeSingleEqChain(subResult, opts.eqCalls));
       const admin: MockAdmin = {
         from: vi.fn((table: string) => {
           if (table === "billing_events") return { update: beUpdate };
@@ -535,6 +627,115 @@ describe("handleInvoicePaid", () => {
       };
       return { admin, beUpdate };
     }
+
+    it("resolves an existing Stripe mirror by provider-neutral subscription id when a PayPal row collides", async () => {
+      vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
+        ok: false,
+        reason: "no_pending",
+      } as never);
+      const eqCalls: EqCall[] = [];
+      const { admin } = makeUpgradeAdmin({
+        eqCalls,
+        subscriptionRows: [
+          {
+            provider: "paypal",
+            provider_subscription_id: "sub_1",
+            id: "mirror-paypal",
+            student_id: "stu-paypal",
+            plan_id: "plan-1",
+          },
+          {
+            provider: "stripe",
+            provider_subscription_id: "sub_1",
+            id: "mirror-stripe",
+            student_id: "stu-stripe",
+            plan_id: "plan-1",
+          },
+        ],
+      });
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_update" }));
+
+      await handleInvoicePaid(ctx);
+
+      expect(eqCalls.slice(0, 2)).toEqual([
+        ["provider", "stripe"],
+        ["provider_subscription_id", "sub_1"],
+      ]);
+      expect(applyImmediateUpgradeGrant).toHaveBeenCalledWith(expect.anything(), "mirror-stripe", "in_1");
+    });
+
+    it("writes provider-neutral columns on create-on-demand and rereads the Stripe winner after a duplicate race", async () => {
+      vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
+        ok: false,
+        reason: "no_pending",
+      } as never);
+      const eqCalls: EqCall[] = [];
+      const insertPayloads: unknown[] = [];
+      let subscriptionReadCount = 0;
+      const winnerRows = [
+        { provider: "paypal", provider_subscription_id: "sub_1", id: "mirror-paypal" },
+        { provider: "stripe", provider_subscription_id: "sub_1", id: "mirror-stripe" },
+      ];
+      const billingEventEq = vi.fn().mockResolvedValue({ error: null });
+      const billingEventUpdate = vi.fn().mockReturnValue({ eq: billingEventEq });
+      const subscriptionSelect = vi.fn(() => makeMaybeSingleEqChain((calls) => {
+        subscriptionReadCount += 1;
+        const row = subscriptionReadCount === 1
+          ? null
+          : winnerRows.find((candidate) =>
+              hasEq(calls, "provider", candidate.provider) &&
+              hasEq(calls, "provider_subscription_id", candidate.provider_subscription_id),
+            ) ?? null;
+
+        return { data: row, error: null };
+      }, eqCalls));
+      const subscriptionInsert = vi.fn((payload: unknown) => {
+        insertPayloads.push(payload);
+        return {
+          select: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: { code: "23505" } }),
+          })),
+        };
+      });
+      const planSelect = vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: "plan-1" }, error: null }),
+        })),
+      }));
+      const admin: MockAdmin = {
+        from: vi.fn((table: string) => {
+          if (table === "billing_events") return { update: billingEventUpdate };
+          if (table === "subscriptions") return { select: subscriptionSelect, insert: subscriptionInsert };
+          return { select: planSelect };
+        }),
+      };
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_update" }));
+      (ctx as { stripe: unknown }).stripe = {
+        subscriptions: {
+          retrieve: vi.fn().mockResolvedValue({
+            metadata: { student_id: "00000000-0000-4000-8000-000000000001" },
+            items: { data: [{ price: { id: "price_1" } }] },
+          }),
+        },
+      };
+
+      await handleInvoicePaid(ctx);
+
+      expect(insertPayloads[0]).toMatchObject({
+        provider: "stripe",
+        provider_subscription_id: "sub_1",
+        provider_customer_id: "",
+        stripe_subscription_id: "sub_1",
+        stripe_customer_id: "",
+      });
+      expect(eqCalls).toEqual([
+        ["provider", "stripe"],
+        ["provider_subscription_id", "sub_1"],
+        ["provider", "stripe"],
+        ["provider_subscription_id", "sub_1"],
+      ]);
+      expect(applyImmediateUpgradeGrant).toHaveBeenCalledWith(expect.anything(), "mirror-stripe", "in_1");
+    });
 
     it("grants ONLY the pending delta — no full grantCycle, no renewal tier change", async () => {
       vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
@@ -646,15 +847,24 @@ describe("handleInvoicePaid", () => {
 
 describe("handlePaymentFailed", () => {
   it("flips an existing subscription to past_due when the event is newer", async () => {
-    const eqUpdate = vi.fn().mockResolvedValue({ error: null });
-    const update = vi.fn().mockReturnValue({ eq: eqUpdate });
-    // existing mirror found, last_event_at older than the event
-    const maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: "mirror-1", last_event_at: "2023-01-01T00:00:00.000Z" },
-      error: null,
+    const updatedIds: unknown[] = [];
+    const eqUpdate = vi.fn((column: string, value: unknown) => {
+      if (column === "id") updatedIds.push(value);
+      return Promise.resolve({ error: null });
     });
-    const eqSelect = vi.fn(() => ({ maybeSingle }));
-    const select = vi.fn(() => ({ eq: eqSelect }));
+    const update = vi.fn().mockReturnValue({ eq: eqUpdate });
+    const rows = [
+      { provider: "paypal", provider_subscription_id: "sub_1", id: "mirror-paypal", last_event_at: "2023-01-01T00:00:00.000Z" },
+      { provider: "stripe", provider_subscription_id: "sub_1", id: "mirror-stripe", last_event_at: "2023-01-01T00:00:00.000Z" },
+    ];
+    const selectEqCalls: EqCall[] = [];
+    const select = vi.fn(() => makeMaybeSingleEqChain((calls) => ({
+      data: rows.find((row) =>
+        hasEq(calls, "provider", row.provider) &&
+        hasEq(calls, "provider_subscription_id", row.provider_subscription_id),
+      ) ?? null,
+      error: null,
+    }), selectEqCalls));
     const from = vi.fn((table: string) => {
       if (table === "billing_events") return { update };
       if (table === "subscriptions") return { select, update };
@@ -670,6 +880,11 @@ describe("handlePaymentFailed", () => {
 
     // the subscription update was called (status flip + recency stamp)
     expect(update).toHaveBeenCalled();
+    expect(selectEqCalls).toEqual([
+      ["provider", "stripe"],
+      ["provider_subscription_id", "sub_1"],
+    ]);
+    expect(updatedIds).toEqual(["mirror-stripe", "evt-1"]);
   });
 
   it("marks processed even when there is no subscription id", async () => {
@@ -837,7 +1052,7 @@ describe("revokeAndCancelOnSubscriptionRefund", () => {
   function makeRefundCtx(opts: {
     grant?: { subscription_id: string | null } | null;
     grantErr?: { message: string } | null;
-    mirror?: { stripe_subscription_id: string; status: string } | null;
+    mirror?: { provider: "stripe" | "paypal"; provider_subscription_id: string | null; status: string } | null;
     cancelImpl?: () => Promise<unknown>;
   }) {
     const payUpdateEq = vi.fn().mockResolvedValue({ error: null });
@@ -867,11 +1082,18 @@ describe("revokeAndCancelOnSubscriptionRefund", () => {
       }
       if (table === "subscriptions") {
         return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              maybeSingle: vi.fn().mockResolvedValue({ data: opts.mirror ?? null, error: null }),
-            })),
-          })),
+          select: vi.fn(() => makeMaybeSingleEqChain((calls) => ({
+            data:
+              opts.mirror &&
+              hasEq(calls, "id", opts.grant?.subscription_id ?? null) &&
+              hasEq(calls, "provider", opts.mirror.provider)
+                ? {
+                    provider_subscription_id: opts.mirror.provider_subscription_id,
+                    status: opts.mirror.status,
+                  }
+                : null,
+            error: null,
+          }))),
           update: vi.fn(() => ({ eq: vi.fn(() => ({ neq: subFlipNeq })) })),
         };
       }
@@ -898,7 +1120,7 @@ describe("revokeAndCancelOnSubscriptionRefund", () => {
   it("full subscription refund: flips payment, revokes grants, cancels Stripe sub + mirror", async () => {
     const { ctx, cancel, payUpdateEq, revokeEq2, subFlipNeq } = makeRefundCtx({
       grant: { subscription_id: "sub-1" },
-      mirror: { stripe_subscription_id: "sub_stripe_1", status: "active" },
+      mirror: { provider: "stripe", provider_subscription_id: "sub_stripe_1", status: "active" },
     });
     await revokeAndCancelOnSubscriptionRefund(ctx, fullRefund);
     expect(payUpdateEq).toHaveBeenCalled();
@@ -910,7 +1132,7 @@ describe("revokeAndCancelOnSubscriptionRefund", () => {
   it("partial refund is a no-op (owner decision: full-refund-only)", async () => {
     const { ctx, cancel, payUpdateEq } = makeRefundCtx({
       grant: { subscription_id: "sub-1" },
-      mirror: { stripe_subscription_id: "sub_stripe_1", status: "active" },
+      mirror: { provider: "stripe", provider_subscription_id: "sub_stripe_1", status: "active" },
     });
     const partial = {
       id: "ch_1", currency: "usd", refunded: false,
@@ -931,7 +1153,7 @@ describe("revokeAndCancelOnSubscriptionRefund", () => {
   it("an already-cancelled Stripe sub does NOT throw (idempotent) and still flips the mirror", async () => {
     const { ctx, subFlipNeq } = makeRefundCtx({
       grant: { subscription_id: "sub-1" },
-      mirror: { stripe_subscription_id: "sub_stripe_1", status: "active" },
+      mirror: { provider: "stripe", provider_subscription_id: "sub_stripe_1", status: "active" },
       cancelImpl: async () => {
         throw Object.assign(new Error("No such subscription: sub_stripe_1"), { code: "resource_missing" });
       },
@@ -949,6 +1171,20 @@ describe("revokeAndCancelOnSubscriptionRefund", () => {
     expect(payUpdateEq).toHaveBeenCalled();   // payment STILL flipped
     expect(revokeEq2).toHaveBeenCalled();      // sessions STILL revoked
     expect(cancel).not.toHaveBeenCalled();     // no Stripe id → cannot cancel there
+    expect(subFlipNeq).not.toHaveBeenCalled();
+  });
+
+  it("skips Stripe cancel when the local mirror row is PayPal", async () => {
+    const { ctx, cancel, payUpdateEq, revokeEq2, subFlipNeq } = makeRefundCtx({
+      grant: { subscription_id: "sub-1" },
+      mirror: { provider: "paypal", provider_subscription_id: "sub_paypal_1", status: "active" },
+    });
+
+    await revokeAndCancelOnSubscriptionRefund(ctx, fullRefund);
+
+    expect(payUpdateEq).toHaveBeenCalled();
+    expect(revokeEq2).toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
     expect(subFlipNeq).not.toHaveBeenCalled();
   });
 
